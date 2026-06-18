@@ -49,11 +49,10 @@ Each skill is self-contained (inlines the operational safety procedures: safe-mo
 28. As a router-agent operator, I want the two small skills (router-deploy, dpi-theory) as single SKILL.md files, so that they're simple to maintain and load in one shot.
 29. As the router-agent, I want inline-ops sections marked with "mirrors AGENTS.md §X as of <date>", so that drift between skills and AGENTS.md is detectable via grep.
 30. As a router-agent operator, I want the skills placed under `router-agent/skills/`, so that they're version-controlled alongside AGENTS.md.
-31. As a router-agent operator, I want the source-file mapping (which `../todo` file each skill distills) documented, so that I can trace claims back to the original knowledge base.
+31. As a router-agent operator, I want the source-file mapping (which `../todo` file each skill distills) recorded in the PRD and issue text only, so that I can trace claims back to the original knowledge base without the skill content exposing `../todo` paths.
 32. As the router-agent, I want the raw `ipset-discord` CIDR list marked "needs curation" (duplicates, mixed ASNs), so that I don't load it as a ready-made firewall rule.
 33. As the router-agent, I want the empty `оркестратор.md` stub ignored and `circular.md` used as the real source, so that I don't reference a non-existent doc.
-34. As a router-agent operator, I want a test seam that verifies skill activation routing, so that I can confirm the right skill fires for a given query and out-of-scope queries fire nothing.
-35. As a router-agent operator, I want the routing test to include negative cases (Wi-Fi, sysupgrade, Windows GUI, MTProto VPS, AmneziaWG client), so that scope boundaries are enforced and the agent stops/asks instead of over-reaching.
+34. As a router-agent operator, I want the skill content (SKILL.md + reference files) to never reference `../todo` paths or the private wiki layout, so that skills stay self-contained and don't leak the source knowledge-base structure.
 
 ## Implementation Decisions
 
@@ -75,15 +74,12 @@ Each skill is self-contained (inlines the operational safety procedures: safe-mo
 - **Discarded as out-of-scope:** Windows GUI launcher (`home/download/discord/youtube/games/.bat/DiscordFix/YTDisBystro/LordSlon/cactuz/Zapret GUI/Сборки/path/Win7-8/Как пользоваться/Манифест/faq/virus/discord-cdn-fix-fake-repos/changelog`), Android/Magisk (`android.md`), MTProto proxy-server, AmneziaWG (`amnezia-2-0/`), VLESS/endpoint hardening (`Localhost-tracking`, `VLESS-SOCKS5-vulnerability`, `VLESS-localhost-protection-guide`, `tunnel-detection-fix-split-ip`, `vless-sni.md`), TSPU site-remediation (`tspu-http2-tls12-fix`, `tspu-disable-quic-chrome`, `tspu-3xui-scmininterval-trap`, `post-*`, `ru-network-blocklists`, `mincifry-nuc-certs`, `nuc-root-mitm`, `post-cert-danger-kratko`), premium/publish/stubs (`premium/*`, `publish.js`, `Privacy Google.md`, `SMS.md`, `Zapret.cmd`, `ZapretVPN.md`), project-meta (`ZapretTeam`, `Волонтёры`, `Дорожная карта`, `ToDo/`).
 - **Trigger descriptions:** each skill's frontmatter `description` is tuned for activation precision (fires on router-relevant zapret2/DPI tasks; does not fire on the discarded out-of-scope topics). The `customize-opencode` skill conventions govern frontmatter/format.
 
-## Testing Decisions
+## Skill Authoring Conventions
 
-- **What makes a good test:** test external behavior only, not implementation details. For knowledge skills the observable external behavior is *skill activation routing* — which skill(s) fire for a given user query — not the prose contents.
-- **Single seam (highest point):** a skill-trigger routing suite. A fixture of representative router-agent user queries:
-  - in-scope positives, one per skill — e.g. "построй fake+multidisorder стратегию для YouTube на роутере" → `zapret2-strategies`; "что значит `--out-range=-d10`" → `zapret2-engine-reference`; "поставить zapret2 на OpenWrt через apk" → `zapret2-router-deploy`; "почему ТСПУ режет ClientHello по JA4" → `dpi-tspu-strategy-theory`;
-  - out-of-scope negatives that must activate none of the four — Wi-Fi setup, Windows GUI launcher, MTProto VPS proxy-server, AmneziaWG client, VLESS/endpoint hardening, firmware `sysupgrade`.
-  - Assert: the expected skill activates, the other three do not, and negatives activate nothing (agent falls back to AGENTS.md stop-and-ask).
-- **Existing seams:** none — the repo's `skills/` is empty, so a new seam is proposed at the highest point (one seam for all four skills), per the "ideal number is one" principle.
-- **Prior art:** the `skill-optimizer` skill's with/without-skill delta benchmark and `skill-creator`'s activation-tuning guidance are the closest analogues in the broader skill ecosystem; the routing suite is the lightweight, deterministic slice of that pattern.
+These conventions apply to all four skills and any future knowledge-skill issues under this PRD:
+
+- **No tests / no harness.** These are knowledge skills (prose reference material), not code. There is no routing-test harness, no fixture file, no runner. Skill activation routing is not asserted via a test seam — the `description` frontmatter is tuned by hand for activation precision, and out-of-scope topics are excluded in the `Do NOT use for` clause.
+- **No `../todo` references in skill content.** Distilling information from the `../todo` knowledge base is allowed and expected, but the skill files themselves (SKILL.md + `reference/*`) must not cite `../todo` paths, wiki filenames, or the private wiki layout. `Source mapping` sections in reference cards cite upstream code and documentation (e.g. `lua/zapret-antidpi.lua:NNN`), not wiki file paths. The `../todo` → skill traceability mapping is maintained in this PRD's Implementation Decisions and in each issue's `Source:` line, never inside the skill content.
 
 ## Out of Scope
 
