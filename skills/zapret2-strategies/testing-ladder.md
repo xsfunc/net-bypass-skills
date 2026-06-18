@@ -57,4 +57,4 @@ This table is a reasoning heuristic from the source, not code-confirmed — repo
 
 ## Beyond rung 4
 
-The next layer is **circular auto-rotation** — a preset that cycles through strategies on RST/retransmission/redirect failures, so the router retries rung 1→4 automatically. That is the orchestrator, not yet documented in this pack. Until it lands, do not improvise rotation logic — report the gap.
+The next layer is **circular auto-rotation** — a profile that cycles through strategies on RST/retransmission/redirect failures, so the router retries rung 1→4 automatically. See `reference/circular.md` for the orchestrator: rotation triggers, the `fails`/`time`/`retrans`/`final` parameters, the per-host state model, and a router `NFQWS2_OPT` example. As always, let `blockcheck2` shape the strategy order — do not hardcode the chain from these cards.
