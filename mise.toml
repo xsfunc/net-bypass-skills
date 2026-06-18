@@ -1,0 +1,3 @@
+[tasks.check-scripts]
+description = "Syntax-check OpenWrt ops scripts (sh -n)"
+run = "sh -n skills/openwrt-ops/scripts/*.sh"
