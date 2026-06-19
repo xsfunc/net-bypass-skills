@@ -33,12 +33,10 @@ opkg upgrade dnsmasq-full jsonfilter firewall4 nftables-json https-dns-proxy ca-
 
 Validate before apply; on failure, do NOT apply, report.
 
-| Component | Check |
-|-----------|-------|
-| nftables | `nft -c -f <file>` (true pre-apply check) |
-| zapret | `sh -n /opt/zapret2/config` |
-| dnsmasq (UCI) | post-reload: `/etc/init.d/dnsmasq status` + `logread \| tail` (see caveat) |
-| UCI | `uci show <config>` after commit |
+- **nftables** — `nft -c -f <file>` (true pre-apply check)
+- **zapret** — `sh -n /opt/zapret2/config`
+- **dnsmasq (UCI)** — post-reload: `/etc/init.d/dnsmasq status` + `logread | tail` (see caveat)
+- **UCI** — `uci show <config>` after commit
 
 > dnsmasq caveat: `dnsmasq --test` reads the last-generated config, which the init script regenerates only on reload. UCI changes aren't visible to `--test` until reload. The rollback timer is the safety net.
 

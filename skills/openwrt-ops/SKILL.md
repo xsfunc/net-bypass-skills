@@ -1,13 +1,6 @@
 ---
 name: openwrt-ops
-description: >-
-  Binding operational manual for an AI agent with SSH access to an OpenWrt
-  router (25.x or pre-25). Governs DPI bypass (zapret2), DNS (dnsmasq-full,
-  https-dns-proxy), firewall (fw4/nftables), and the network/DHCP plumbing
-  they need, with safe-mode snapshot/rollback, PM/HW profile detection,
-  preflight, validation, and audit logging. Invoke $openwrt-ops before
-  any router-facing change. Do NOT use for Wi-Fi, firmware/sysupgrade,
-  users/SSH keys, or LuCI.
+description: OpenWrt router (25.x or pre-25) ops manual for an AI agent with SSH access. Invoke `$openwrt-ops` before any router-facing change to zapret2, dnsmasq-full, https-dns-proxy, fw4/nftables, or network/DHCP plumbing. Do NOT use for Wi-Fi, firmware/sysupgrade, users/SSH keys, or LuCI.
 ---
 
 # openwrt-ops — OpenWrt router agent operational manual
@@ -42,6 +35,7 @@ Inline markers `(apk: … / opkg: …)` and `(constrained: … / capable: …)` 
 9. Use the detected package manager. If both or neither `apk`/`opkg` present, stop and report. Never mix PMs on one system.
 10. Validate before apply: `nft -c -f` (nftables), `sh -n` (zapret), post-reload status (dnsmasq). Apply only on pass.
 11. Out of scope = stop and ask. No Wi-Fi, firmware, users, SSH, LuCI.
+12. No firmware/flash destruction: `sysupgrade`, `mtd write/erase`, `dd … of=/dev/mtd*|sd*`, `mkfs.*`, `rm -rf /` or `/overlay/*`, editing `/etc/openwrt_release` — all PROHIBITED unless operator explicitly approves the specific operation.
 
 Recommended: `sshpass` with env for non-interactive SSH to router. Password via `-p` leaks in `ps`.
 
@@ -94,11 +88,9 @@ opkg list-upgradable; opkg info <pkg>  # opkg equivalent
 
 ## 4. Approved Stack
 
-| Component | Package | Notes |
-|-----------|---------|-------|
-| DNS/DHCP | `dnsmasq-full` | Replaces plain `dnsmasq` for nftset support. nftset ON, ipset OFF by default. v2.86+ (25.x: 2.91+; 23.05: 2.86 initial, 2.90 in service releases). UCI: `/etc/config/dhcp`. |
-| DoH | `https-dns-proxy` | Lightest C DoH client (libcares+libcurl+libev). Depends on jsonfilter. UCI: `/etc/config/https-dns-proxy`. Recommended on all corners. Heavier DoH *clients* (`dnscrypt-proxy`, `dnsproxy`): `(constrained: PROHIBITED / capable: allowed, C-prefer)`. DNS *servers* replacing dnsmasq (`smartdns`, `adguardhome-go`): always stop-and-ask — architectural replacement, out of scope. |
-| DPI bypass | `zapret2` (bol-van/zapret2) | `nfqws2` (NFQUEUE) + `dvtws2` (transparent proxy). MUST use autodetection/`blockcheck2` — never hardcode strategy. Config: `/opt/zapret2/config` (shell file, not UCI). Tarball install to `/opt/zapret2`, not a system PM package. |
+- **dnsmasq-full** (DNS/DHCP) — Replaces plain `dnsmasq` for nftset support. nftset ON, ipset OFF by default. v2.86+ (25.x: 2.91+; 23.05: 2.86 initial, 2.90 in service releases). UCI: `/etc/config/dhcp`.
+- **https-dns-proxy** (DoH) — UCI: `/etc/config/https-dns-proxy`. Recommended on all corners. Heavier DoH *clients* (`dnscrypt-proxy`, `dnsproxy`): `(constrained: PROHIBITED / capable: allowed, C-prefer)`. DNS *servers* replacing dnsmasq (`smartdns`, `adguardhome-go`): always stop-and-ask — architectural replacement, out of scope.
+- **zapret2** / bol-van/zapret2 (DPI bypass) — `nfqws2` (NFQUEUE) + `dvtws2` (transparent proxy). MUST use autodetection/`blockcheck2` — never hardcode strategy. Config: `/opt/zapret2/config` (shell file, not UCI). Tarball install to `/opt/zapret2`, not a system PM package.
 
 > Desync content of `/opt/zapret2/config` (technique taxonomy, preset/profile model, nfqws1->nfqws2 migration, testing ladder): load `$zapret2-strategies`. This manual governs *how* to change zapret2 safely; that pack governs *what* desync strategy to compose after running `blockcheck2`.
 
@@ -153,9 +145,9 @@ Read `references/ops-commands.md#package-management-apk--opkg` for the full apk/
 
 ## 9. Configuration & Restarts
 
-- System settings via UCI only: `uci set/add_list/del_list/commit`, then `reload_config` or `/etc/init.d/<svc> reload`. `reload` > `restart` (less disruption).
-- Direct `/etc/config/*` writes PROHIBITED. Exception: `/opt/zapret2/config` (shell file) — back up, `sh -n` validate, restart via init script.
-- `reboot` only on explicit operator text. Never `kill -9` daemons — use init scripts.
+- System settings via UCI: `uci set/add_list/del_list/commit`, then `reload_config` or `/etc/init.d/<svc> reload`. `reload` > `restart` (less disruption).
+- `/opt/zapret2/config` (sole non-UCI exception, §0.6): back up, `sh -n` validate, restart via init script.
+- Never `kill -9` daemons — use init scripts.
 
 ---
 
@@ -169,27 +161,33 @@ Log: every PM install/remove/upgrade, uci batch, reload/restart, snapshot + time
 
 ---
 
-## 11. Forbidden Commands
+## 11. Forbidden Commands (quick-ref)
 
-PROHIBITED unless operator explicitly approves the specific operation:
+All prohibitions live in §0 (Non-Negotiables) and the sections referenced below. When uncertain → forbidden → report → ask.
 
-`sysupgrade`, `mtd write/erase`, `dd … of=/dev/mtd*|sd*`, `mkfs.*`, `rm -rf /` or `/overlay/*`, blanket upgrade via any PM (`apk upgrade`/`opkg upgrade` without an allowlist), `reboot`, direct `/etc/config/*` writes (except zapret), mixing `apk` and `opkg` on one system / using the non-detected PM, `jq`, legacy `iptables` as primary, `ipset` as primary, hardcoded zapret strategy, `kill -9` daemons, editing `/etc/openwrt_release`, heavy runtimes (Go/Python/Node) on `constrained` HW.
-
-When uncertain, treat as forbidden → report → ask.
+- Firmware/flash destruction: `sysupgrade`, `mtd write/erase`, `dd … of=/dev/mtd*|sd*`, `mkfs.*`, `rm -rf /` or `/overlay/*`, editing `/etc/openwrt_release` — §0.12.
+- Blanket upgrade via any PM — §0.4.
+- `reboot` — §0.5.
+- Direct `/etc/config/*` writes (except `/opt/zapret2/config`) — §0.6.
+- Mixing `apk` and `opkg` / using non-detected PM — §0.9.
+- `jq`, legacy `iptables` as primary, `ipset` as primary — §0.8, §2.
+- Hardcoded zapret strategy — §4.
+- `kill -9` daemons — §9.
+- Heavy runtimes (Go/Python/Node) on `constrained` HW — §1.
 
 ---
 
 ## 12. Operator Protocol
 
-- Report plan before non-trivial changes: what, affected services, rollback window, `touch /tmp/agent_ok`.
-- Confirmations: safe-mode = `touch /tmp/agent_ok`; reboot = literal "reboot"; out-of-scope = operator names the task.
+- Report plan before non-trivial changes: what, affected services, rollback window.
 - On failure: stop, capture error, roll back if partial, report exact command + error. Never guess on hardware — report and ask.
 
 ---
 
-## Appendix — Integrated Example: Safe-Mode nftset Change
+## Appendix — Integrated Example: Safe-Mode Change
 
-Add `example.com` to dnsmasq nftset `zapret_v4` (ash-compatible):
+Canonical: add `example.com` to dnsmasq nftset `zapret_v4` (`apk + constrained` corner, ash-compatible):
+
 ```sh
 # 1. Preflight
 df -h / /tmp; free -m; cat /etc/openwrt_release
@@ -214,48 +212,30 @@ kill "$(cat "$RB/revert.pid")" 2>/dev/null; rm -f /tmp/agent_ok
 # 10. Audit
 echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | uci add_list | dhcp.@dnsmasq[0].nftset | OK | example.com -> 4#zapret_v4" >> /tmp/agent-audit.log
 ```
+
 Timer armed before reload so a DNS breakage still reverts. No `jq` — jsonfilter only if needed.
 
-> The example above is written for the `apk + constrained` corner. Substitutions for the other three corners: (PM) on `opkg`, replace `apk info nftables-json` with `opkg list-installed nftables-json`; the UCI/safe-mode/timer steps are PM-agnostic and unchanged. (HW) `capable` only relaxes the heavy-runtime ban and install-target threshold — neither touched here — so the procedure is identical on capable HW. `opkg`-only is normal on pre-25: do not abort the PM detection when only `opkg` is present.
-
-## Appendix — Integrated Example: Safe-Mode zapret2 Config Edit
-
-Edit `/opt/zapret2/config` (the sole non-UCI exception). Compose desync content from `blockcheck2` + `$zapret2-strategies`; this example shows only the safe-mode wrapping (ash-compatible, PM-agnostic):
+**Delta — zapret2 config edit** (`/opt/zapret2/config`, sole non-UCI exception per §0.6): compose desync from `blockcheck2` + `$zapret2-strategies`; replace steps 4–7 with:
 
 ```sh
-# 1. Preflight
-df -h / /tmp; free -m; cat /etc/openwrt_release
-# 2. Snapshot (captures /opt/zapret2/config)
-RB=$(sh scripts/snapshot.sh)
-# 3. Back up the config you are about to edit
+# 4. Back up the config you are about to edit
 cp -a /opt/zapret2/config "$RB/zapret2-config.precopy"
-# 4. Edit /opt/zapret2/config (desync from blockcheck2 + $zapret2-strategies)
+# 5. Edit /opt/zapret2/config (desync from blockcheck2 + $zapret2-strategies)
 #    ... apply edits ...
-# 5. Validate syntax BEFORE arming
+# 6. Validate syntax BEFORE arming
 sh -n /opt/zapret2/config || { echo "syntax fail"; exit 1; }
-# 6. Arm timer FIRST
-( sleep 300 && /tmp/agent-revert.sh "$RB" ) &
-echo $! > "$RB/revert.pid"
 # 7. Apply: restart via init script
 /etc/init.d/zapret2 restart
 # 8. Validate post-restart
 ps w | grep -q '[n]fqws2' && logread | tail -20   # no nfqws2 process -> revert + stop
-# 9. Operator confirms
-touch /tmp/agent_ok
-# 10. Disarm
-kill "$(cat "$RB/revert.pid")" 2>/dev/null; rm -f /tmp/agent_ok
-# 11. Audit
-echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) | edit | /opt/zapret2/config | OK | desync change" >> /tmp/agent-audit.log
 ```
-Timer armed before restart so a misconfiguration still reverts. `sh -n` runs before arming so a syntax error never reaches the apply step. No `jq`; no direct `/etc/config/*` writes — `/opt/zapret2/config` is the only exception.
 
----
+`sh -n` runs before arming so a syntax error never reaches the apply step.
 
-End. When in doubt: report, ask, default to the safest option that preserves SSH access and flash integrity.
+**Corner substitutions**: (PM) on `opkg`, replace `apk info nftables-json` with `opkg list-installed nftables-json`; the UCI/safe-mode/timer steps are PM-agnostic. (HW) `capable` only relaxes the heavy-runtime ban and install-target threshold — the procedure is identical on capable HW. `opkg`-only is normal on pre-25: do not abort the PM detection when only `opkg` is present.
 
 ---
 
 ## Scripts
 
-- `scripts/snapshot.sh` — safe-mode snapshot to `/tmp/rollback/<ts>/` (§6). Captures UCI, `/etc/config`, `/opt/zapret2/config`, and `nft list ruleset` (audit-only) to RAM. Run on the router; prints the rollback dir on stdout. `set -eu`.
-- `scripts/revert.sh` — generic rollback script; deploy to `/tmp/agent-revert.sh` on the router and arm via the §6 timer. Restores configs, then reloads `network` + `firewall` (fw4 rebuilds nft) and restarts dnsmasq/https-dns-proxy/zapret2. `set -eu`.
+Both referenced from §6: `scripts/snapshot.sh` (snapshot to RAM, prints rollback dir on stdout) and `scripts/revert.sh` (deploy to `/tmp/agent-revert.sh` on the router, arm via the §6 timer). Both `set -eu`.
