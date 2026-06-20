@@ -3,28 +3,39 @@ name: zapret2-engine-reference
 description: >-
   zapret2 nfqws2 engine flag and argument-syntax reference pack for the OpenWrt
   router agent (fw4/nftables). Distills the profile-scope filter flags
-  (--filter-l3/tcp/udp/l7), the payload-type filter (--payload), the packet-range
-  filter (--out-range/--in-range), the binary blob model (--blob, tls_mod,
-  standard blobs), the per-desync fooling flags (ip_ttl, ip_autottl, ip6_hopbyhop,
-  tcp_md5, tcp_seq, tcp_ack, badsum, tcp_flags_unset), the preset header globals
-  (--lua-init, --ctrack-disable, --ipcache-lifetime, --ipcache-hostname), and the
-  argument-ordering rules (--payload/--out-range must precede the --lua-desync
+  (--filter-l3/tcp/udp/l7/icmp/ipp, --filter-ssid, --skip, --name, --template,
+  --import, --cookie), the payload-type filter (--payload), the packet-range
+  filter (--out-range/--in-range, n d s p b a x prefixes), the binary blob model
+  (--blob, tls_mod, standard blobs), the per-desync fooling flags (ip_ttl,
+  ip_autottl, ip6_hopbyhop, ip_id, ip_id_conn, tcp_md5, tcp_seq, tcp_ack,
+  tcp_nop_del, badsum, tcp_flags_unset, ipfrag, ipfrag_pos_tcp, ipfrag_disorder),
+  the preset header globals (--lua-init, --ctrack-disable, --ipcache-lifetime,
+  --ipcache-hostname, --server, --reasm-disable, --intercept, --writable,
+  --lua-gc, --qnum, --fwmark), the NFQUEUE verdicts (VERDICT_PASS,
+  VERDICT_MODIFY, VERDICT_DROP, VERDICT_PRESERVE_NEXT), the Lua C API (luaexec,
+  resolve_pos, tls_dissect, rawsend, conntrack_feed, timer_set, get_ifaddrs), and
+  the argument-ordering rules (--payload/--out-range must precede the --lua-desync
   they scope). Use when: --filter-tcp, --filter-udp, --filter-l7, --filter-l3,
-  --payload flag, payload types, tls_client_hello, http_req, quic_initial,
-  --out-range, --in-range, packet range, n d s b prefix, data packet counting,
-  --blob flag, blob syntax, tls_mod, fooling flags, ip_ttl, ip_autottl, tcp_md5,
-  tcp_seq, tcp_ack, badsum, --lua-init, --ctrack-disable, --ipcache-lifetime,
-  --ipcache-hostname, argument ordering, payload before lua-desync, out-range
-  before lua-desync, filter AND semantics, n vs d prefix. Do NOT use for: which
-  desync technique to use, --lua-desync function semantics, fake syndata
-  multisplit multidisorder fakedsplit fakeddisorder hostfakesplit tcpseg oob,
-  position markers pos midsld sld endhost, seqovl, seqovl_pattern, repeats,
-  orchestrator circular auto-rotation, preset composition model, --new profile
-  separator, profile anatomy, --lua-desync=pass, desync stacking, router install
-  apk opkg, nftables NFQUEUE wiring, hostlist ipset nftset management,
-  blockcheck, DPI TSPU theory, JA3 JA4 fingerprint, wifi wireless, sysupgrade,
-  Windows GUI launcher winws2, WinDivert, MTProto L7 recognition mtproto_initial,
-  AmneziaWG client, VLESS endpoint hardening.
+  --filter-icmp, --filter-ipp, --filter-ssid, --payload flag, payload types,
+  tls_client_hello, http_req, quic_initial, --out-range, --in-range, packet
+  range, n d s p b prefix, data packet counting, --blob flag, blob syntax,
+  tls_mod, fooling flags, ip_ttl, ip_autottl, ip_id, tcp_md5, tcp_seq, tcp_ack,
+  tcp_nop_del, badsum, ipfrag, --lua-init, --ctrack-disable, --ipcache-lifetime,
+  --ipcache-hostname, --server, --reasm-disable, --intercept, --writable,
+  --lua-gc, --qnum, --fwmark, --template, --import, --skip, --name, --cookie,
+  VERDICT_PASS, VERDICT_MODIFY, VERDICT_DROP, VERDICT_PRESERVE_NEXT, luaexec,
+  Lua C API, resolve_pos, tls_dissect, rawsend, conntrack_feed, timer_set,
+  get_ifaddrs, argument ordering, payload before lua-desync, out-range before
+  lua-desync, filter AND semantics, n vs d prefix. Do NOT use for: which desync
+  technique to use, --lua-desync function semantics, fake syndata multisplit
+  multidisorder fakedsplit fakeddisorder hostfakesplit tcpseg oob, position
+  markers pos midsld sld endhost, seqovl, seqovl_pattern, repeats, orchestrator
+  circular auto-rotation, preset composition model, --new profile separator,
+  profile anatomy, --lua-desync=pass, desync stacking, router install apk opkg,
+  nftables NFQUEUE wiring, hostlist ipset nftset management, blockcheck, DPI TSPU
+  theory, JA3 JA4 fingerprint, wifi wireless, sysupgrade, Windows GUI launcher
+  winws2, WinDivert, MTProto L7 recognition mtproto_initial, AmneziaWG client,
+  VLESS endpoint hardening.
 ---
 
 # zapret2-engine-reference — nfqws2 flag & argument-syntax reference pack
@@ -47,11 +58,13 @@ Every claim in every card carries one of three tags (assigned during distillatio
 
 - `reference/filter.md` — profile-scope transport/protocol filters (`--filter-l3/tcp/udp/l7`), AND-semantics, TCP/UDP mutual exclusion; `--ipset`/`--hostlist` as filter primitives (management → `zapret2-router-deploy`).
 - `reference/payload.md` — payload-type filter (`--payload`), full type list, default `known`, `~`-inversion, comma-lists, `l7proto` vs `l7payload`.
-- `reference/out-range.md` — packet-range filter (`--out-range`/`--in-range`), `n/d/s/b/a/x` prefixes, `-`/`<` separators, data-packet counting; `d`-stable-vs-`n` gotcha.
+- `reference/out-range.md` — packet-range filter (`--out-range`/`--in-range`), `n/d/s/p/b/a/x` prefixes, `-`/`<` separators, data-packet counting; `d`-stable-vs-`n` gotcha.
 - `reference/blob.md` — binary blob model (`--blob=name:@file|0xhex|+off@file`), standard blobs, `tls_mod` function (signature, startup vs on-the-fly mutation).
-- `reference/fooling.md` — per-desync fooling flags (`ip_ttl`, `ip_autottl`, `ip6_*`, `tcp_seq/ack/ts/md5`, `tcp_flags_*`, `tcp_ts_up`, `badsum`, `fool=`) + nfqws1 combonyms pointer.
-- `reference/core-flags.md` — preset header globals (`--lua-init`, `--ctrack-disable`, `--ipcache-*`, `--blob` one-liner) + Windows-only `--wf-*` boundary marker (router-safety).
+- `reference/fooling.md` — per-desync fooling flags (`ip_ttl`, `ip_autottl`, `ip6_*`, `ip_id`, `tcp_seq/ack/ts/md5`, `tcp_nop_del`, `tcp_flags_*`, `tcp_ts_up`, `badsum`, `fool=`, `ipfrag_options` block) + nfqws1 combonyms pointer.
+- `reference/core-flags.md` — preset header globals (`--lua-init`, `--ctrack-disable`, `--ipcache-*`, `--blob` one-liner), General flags (all engines: `--server`, `--reasm-disable`, `--intercept`, `--writable`, `--lua-gc`, …), nfqws2-specific (`--qnum`, `--fwmark`, `--user`, `--bind-fix4/6`) + Windows-only `--wf-*` boundary marker (router-safety).
 - `reference/arg-ordering.md` — argument-ordering rules: `--payload`/`--out-range`/`--in-range` must precede the `--lua-desync` they scope; scope table; correct vs invalid example.
+- `reference/verdicts.md` — the four NFQUEUE verdicts (`VERDICT_PASS`/`MODIFY`/`DROP`/`PRESERVE_NEXT` — the last a separate bit) and multi-instance aggregation (`DROP > MODIFY > PASS`, `PRESERVE_NEXT` if any).
+- `reference/lua-api.md` — demand-loaded C functions exposed to Lua (`resolve_pos`, `tls_dissect`, `rawsend`, `conntrack_feed`, `timer_set`, `get_ifaddrs`, …) and helper libraries. Loaded only for custom `--lua-init`/`luaexec` work or debugging `zapret-lib.lua`; not needed for standard `--lua-desync` composition.
 
 ## Operational safety reminder
 

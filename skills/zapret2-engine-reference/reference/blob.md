@@ -59,7 +59,7 @@ tls_mod(blob, modlist, [payload]) -> modified_blob
 | Mod | Effect | Evidence |
 |-----|--------|----------|
 | `none` | no modification (explicit) | verified |
-| `rnd` | randomise the 32-byte `random` field | verified |
+| `rnd` | randomise the 32-byte `random` field **and** the `session_id` field | verified |
 | `rndsni` | replace SNI with a random domain | verified |
 | `sni=<domain>` | set a specific SNI (supports `sni=%var`) | verified |
 | `dupsid` | copy Session ID from the real `payload` (needs 3rd arg) | verified |

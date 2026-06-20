@@ -5,12 +5,12 @@
 ## Format
 
 ```
---out-range=[(n|a|d|s|b|x)<int>](-|<)[(n|a|d|s|b|x)<int>]
+--out-range=[(n|a|d|s|p|b|x)<int>](-|<)[(n|a|d|s|p|b|x)<int>]
             ───────────────────────────────────────────
-                  FROM        SEPARATOR      TO
+                   FROM        SEPARATOR      TO
 ```
 
-`[evidence: verified]` (flag syntax is code-defined).
+`[evidence: verified]` (flag syntax is code-defined; `p` prefix per `docs/manual.md` §range syntax).
 
 ### Prefixes (counting modes)
 
@@ -19,6 +19,7 @@
 | `n` | packet **n**umber — ordinal of intercepted packets in the chosen direction | verified |
 | `d` | **d**ata packets — only packets carrying L7 payload (empty ACK/FIN/RST excluded) | verified |
 | `s` | **s**equence — relative TCP sequence number | verified |
+| `p` | tcp relative sequence **u**pper bound of the current packet (= `s` + payload size, within 2 GB) — use to bound a range by the current packet's last byte | verified |
 | `b` | **b**yte count — bytes transferred | verified |
 | `a` | **a**lways — from the start (no number) | verified |
 | `x` | ne**x**t/never — never (no number) | verified |
@@ -41,6 +42,7 @@ All counters count **only packets that actually reached the engine** — i.e. we
 --out-range=d5-         # from 5th data packet to infinity
 --out-range=d10-d10     # exactly the 10th data packet
 --out-range=d10<d11     # only the 10th (11th excluded)
+--out-range=s100-p2000  # from relative seq 100 through the current packet's last byte (s + payload size)
 --out-range=-d10 --lua-desync=my_func   # my_func fires only on the first 10 data packets
 ```
 
@@ -95,4 +97,4 @@ The typical pattern is `--out-range=-dN` — act only on the first N data packet
 
 ## Source mapping
 
-Upstream documentation: zapret2 `--out-range`/`--in-range` syntax (prefix modes, separators, data-packet semantics, direction split). No single code path cited — model distilled from upstream range-filter documentation; `n`-vs-`d` stability reasoning preserved from upstream guidance and re-grounded for the router (NFQUEUE queue-rule dependency).
+Upstream documentation: `docs/manual.md` §range syntax (prefix modes `n/d/s/p/b/a/x`, separators, data-packet semantics, direction split); `p` = tcp relative sequence upper bound (= `s` + payload size, within 2 GB). No single code path cited — model distilled from upstream range-filter documentation; `n`-vs-`d` stability reasoning preserved from upstream guidance and re-grounded for the router (NFQUEUE queue-rule dependency).

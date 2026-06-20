@@ -14,6 +14,42 @@ The **preset header** is the block of global flags that precedes the first `--ne
 
 `[evidence: verified]` (flag syntax is code-defined); `[evidence: community-observed]` (the "header holds globals" placement convention).
 
+## General flags (apply to all engines: nfqws2/dvtws2/winws2)
+
+Beyond the header globals above, the engine accepts these top-level flags. They are code-defined flag syntax (`docs/manual.md` §"Полный список опций") and apply regardless of engine:
+
+| Flag | Glossary | Evidence |
+|------|----------|----------|
+| `@<config_file>` | read options from file; all other cmdline opts ignored | verified |
+| `--debug=0\|1\|syslog\|android\|@<filename>` | debug log target | verified |
+| `--version` | print version | verified |
+| `--dry-run` | validate cmdline + file existence; does NOT check Lua scripts | verified |
+| `--comment=<text>` | arbitrary comment (stored, not acted on) | verified |
+| `--intercept=0\|1` | `0` = run `--lua-init` then exit, no NFQUEUE (use for Lua-init-only / timer daemons); `1` = normal intercept | verified |
+| `--ctrack-timeouts=S:E:F[:U]` | conntrack timeouts tcp SYN:ESTABLISHED:FIN[:udp] (seconds) | verified |
+| `--payload-disable=[type[,type]]` | disable discovery of payload types; no arg = all | verified |
+| `--reasm-disable=[type[,type]]` | disable reasm for `tls_client_hello`/`quic_initial`; no arg = all | verified |
+| `--server=0\|1` | server mode — inverts IP/port interpretation for `--ipset`/`--port-filter` (run nfqws2 on the server side) | verified |
+| `--writable[=<dir>]` | create a writable dir for Lua; path exposed in env `WRITABLE` (only one `--writable` allowed) | verified |
+| `--lua-gc=<int>` | Lua GC interval seconds; `0` = disable periodic GC | verified |
+| `--ipcache-lifetime=<int>` | IP-cache TTL in seconds | verified (see Header globals above) |
+| `--ipcache-hostname=0\|1` | cache hostname → IP | verified (see Header globals above) |
+
+`[evidence: verified]` (flag syntax is code-defined per `docs/manual.md` §"Полный список опций").
+
+## nfqws2-specific flags (Linux)
+
+These are parsed only by the Linux engine (`nfqws2`); `dvtws2`/`winws2` do not register them.
+
+| Flag | Glossary | Evidence |
+|------|----------|----------|
+| `--qnum=<nfqueue_number>` | NFQUEUE queue number — must match the nftables `queue num` (see `zapret2-router-deploy/reference/nfqueue-wiring.md`) | verified |
+| `--user=<username>` / `--uid=uid[:gid1,gid2,...]` | drop privileges after bind (Keenetic: set `WS_USER=nobody` in `config`) | verified |
+| `--fwmark=<int\|0xHEX>` | default `0x40000000` — mark bit to prevent re-capture loop (see `DESYNC_MARK` in `config`) | verified |
+| `--bind-fix4` / `--bind-fix6` | fix generated packets egress on the wrong iface under policy-based routing | verified |
+
+`[evidence: verified]` (flag syntax is code-defined per `docs/manual.md` §nfqws2-specific; `--fwmark` default `0x40000000` = `DESYNC_MARK`).
+
 ## Profile-scope tokens (one-liners)
 
 These appear **inside** a profile block and have their own reference cards:
@@ -44,7 +80,7 @@ The `--wf-*` family is the **WinDivert capture filter** for the Windows engine (
 | `--wf-raw` / `--wf-raw-part` | WinDivert filter language | nftables rules / `--filter-*` (engine-side) |
 | `--wf-filter-lan` | exclude LAN | nftables rule (#5) |
 | `--wf-save` | dump filter and exit | n/a |
-| `--filter-ssid` | WiFi SSID filter | n/a (Windows-only) |
+| `--ssid-filter` | WiFi SSID filter (winws2) | `--filter-ssid` (nfqws2/Linux, AP router — see `filter.md`) |
 
 `[evidence: verified]` (the `--wf-*` flags are Windows/WinDivert-only; nfqws2 does not parse them — router capture is nftables/NFQUEUE); router wiring: `zapret2-router-deploy` (#5).
 
@@ -82,4 +118,4 @@ The `--wf-*` family is the **WinDivert capture filter** for the Windows engine (
 
 ## Source mapping
 
-Upstream documentation: zapret2 preset header model (globals convention, `--lua-init`/`--ctrack-disable`/`--ipcache-*`/`--blob`). Upstream code: `nfqws.c` / `lua/zapret-lib.lua` (flag parsing, Lua init, conntrack, IP cache). The `--wf-*` set is WinDivert-only (`nfqws2` does not register these options).
+Upstream documentation: `docs/manual.md` §"Полный список опций" (General flags: `--debug`/`--version`/`--dry-run`/`--comment`/`--intercept`/`--ctrack-timeouts`/`--payload-disable`/`--reasm-disable`/`--server`/`--writable`/`--lua-gc`), §nfqws2-specific (`--qnum`/`--user`/`--uid`/`--fwmark`/`--bind-fix4`/`--bind-fix6`), preset header model (globals convention, `--lua-init`/`--ctrack-disable`/`--ipcache-*`/`--blob`). Upstream code: `nfqws.c` / `lua/zapret-lib.lua` (flag parsing, Lua init, conntrack, IP cache). The `--wf-*` set is WinDivert-only (`nfqws2` does not register these options); `--fwmark` default `0x40000000` = `DESYNC_MARK`.

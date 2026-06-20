@@ -9,14 +9,17 @@
 | Special | `all`, `unknown`, `empty`, `known` |
 | HTTP | `http_req`, `http_reply` |
 | TLS/SSL | `tls_client_hello`, `tls_server_hello` |
+| DTLS | `dtls_client_hello` (dtls), `dtls_server_hello` (dtls) |
 | QUIC | `quic_initial` |
-| WireGuard | `wireguard_initiation`, `wireguard_response`, `wireguard_cookie`, `wireguard_keepalive`, `wireguard_data` |
+| WireGuard | `wireguard_initiation`, `wireguard_response`, `wireguard_cookie`, `wireguard_keepalive` |
+| BitTorrent | `bt_handshake` (bt), `utp_bt_handshake` (utp_bt) |
 | P2P/messengers | `dht`, `discord_ip_discovery`, `stun` |
 | XMPP | `xmpp_stream`, `xmpp_starttls`, `xmpp_proceed`, `xmpp_features` |
 | DNS | `dns_query`, `dns_response` |
 | Telegram | `mtproto_initial` |
+| ICMP-carried (special) | `ipv4`, `ipv6`, `icmp` — generated when an ICMP packet carries an attached original packet; the attached packet is classified as `ipv4`/`ipv6`/`icmp` rather than a normal L7 payload (see `docs/manual.md` §"Protocol/payload recognition") |
 
-`[evidence: verified]` (the `l7payload` enum is code-defined in `nfq2/protocol.c`; the `L7P_*` constants map to the names above).
+`[evidence: verified]` (the `l7payload` enum is code-defined in `nfq2/protocol.c`; the `L7P_*` constants map to the names above; `wireguard_data` is **not** an enum value — removed).
 
 ## Syntax
 
