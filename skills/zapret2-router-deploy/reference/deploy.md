@@ -142,6 +142,19 @@ cp "$RB/zapret2-config.precopy" /opt/zapret2/config
 # 6. Validate + arm timer + start (Steps 6-9 above)
 ```
 
+## Installer scripts
+
+The upstream tarball ships installer scripts in `/opt/zapret2/` as conveniences that automate parts of the manual tarball procedure above. They are **not the canonical path** this skill documents — the canonical procedure is the manual tarball install (Steps 1–10). All `[evidence: community-observed]` (script behaviour widely attested; not in openwrt-ops).
+
+| Script | Purpose | OpenWrt notes |
+|--------|---------|---------------|
+| `install_easy.sh` | Main installer; dialog mode; auto binaries + prereqs; copies to `/opt/zapret2`; fixes permissions; optionally preserves config/custom/user-lists/autohostlist; builds binaries from source if absent (needs C compiler, make, dev packages — see `docs/compile`) | Runs on OpenWrt; audit before running on a live router per openwrt-ops §11 |
+| `install_bin.sh` | Auto-find arch-matching binaries; create symlinks in `nfq2/mdig/ip2net` | Tuned for stripped firmwares |
+| `install_prereq.sh` | Install required packages (OpenWrt + most Linux distros) | Uses the detected PM (apk/opkg) |
+| `uninstall_easy.sh` | Uninstaller; can't remove autostart on unsupported systems; offers prereq removal only on OpenWrt; doesn't remove install dir | — |
+
+> **Gotcha — audit the installer script before running it.** openwrt-ops §11 forbids blind execution of unauthorised scripts; the canonical procedure this skill documents is the manual tarball install — installers are conveniences, not the canonical path. `[evidence: hypothesis]` (operator-safety policy; no upstream code confirms installer internals).
+
 ## Third-party installers (community-observed, NOT canonical)
 
 These are **not governed by this skill**. They are community-maintained wrappers that automate parts of the install. **Audit the script before running it on a live router** (openwrt-ops §11 forbids blind execution of unauthorised scripts); they may hardcode strategies (violating openwrt-ops §11 "no hardcoded zapret strategy") or modify firewall rules outside the safe-mode protocol.

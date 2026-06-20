@@ -36,10 +36,9 @@ There is **no universal working strategy**. A strategy that works in one region 
 1. **Pick the target**: a specific blocked site (e.g. `https://www.youtube.com`) or service (Discord voice). blockcheck tests against one target at a time.
 2. **Run `blockcheck2`** on the router (it must be installed per `deploy.md` and NFQUEUE wired per `nfqueue-wiring.md` — though blockcheck can also run in a standalone mode without the full init-script setup, the router-context run uses the live NFQUEUE path):
    ```sh
-   # From /opt/zapret2/bin/
-   sh /opt/zapret2/bin/blockcheck2.sh <target-domain> 2>&1 | tee /tmp/blockcheck-<target>.log
+   BATCH=1 DOMAINS=bbc.com SKIP_DNSCHECK=1 /opt/zapret2/blockcheck2.sh 2>&1 | tee /tmp/blockcheck.log
    ```
-   Run under safe-mode (openwrt-ops §6) if it modifies state; a pure test run that doesn't write config is read-only and doesn't need the timer. `[evidence: community-observed]`
+   Multiple domains space-separated (`DOMAINS="bbc.com youtube.com"`). URIs like `rutracker.org/forum/index.php` are allowed (no `https://` prefix). http via GET, https via HEAD (use `CURL_HTTPS_GET=1` for long-response / 16KB-block testing). The positional-arg form `sh /opt/zapret2/bin/blockcheck2.sh <domain>` is **interactive-only** — use the batch form for agent-driven runs. Run under safe-mode (openwrt-ops §6) if it modifies state; a pure test run that doesn't write config is read-only and doesn't need the timer. `[evidence: verified]` (env-var surface in `blockcheck2.sh`); `[evidence: community-observed]` (run pattern widely attested).
 3. **Wait** — the run takes **~1 hour or more**. It tests many combinations sequentially. Do **not** close the session (a closed SSH session may kill the foreground process — use `tmux`/`screen` on capable HW, or `nohup` on constrained HW). `[evidence: community-observed]`
 4. **Read the log** (`/tmp/blockcheck-<target>.log`): it reports which strategy combinations succeeded. The successful combinations are the candidates for the preset's profile for that target. `[evidence: community-observed]`
 5. **Translate the result into a profile** using `zapret2-strategies` (desync technique semantics) + `zapret2-engine-reference` (flag syntax + argument ordering). Don't copy a raw blockcheck line into the config without understanding it — blockcheck output is a starting point, not a drop-in config. `[evidence: hypothesis]` (translation discipline is operator-policy; not upstream-mandated but the safe path).
@@ -48,6 +47,87 @@ There is **no universal working strategy**. A strategy that works in one region 
 ### Scope
 
 `blockcheck2` is primarily for **YouTube and Discord** (the canonical Russian-block targets). For other sites, it can still produce useful results but the combinatorial coverage may be tuned to the canonical targets. `[evidence: community-observed]`
+
+## blockcheck2 reference
+
+The enumerative reference for `blockcheck2` — env vars, test vars, test structure, custom test files. `[evidence: verified]` (env-var/test-var surface in `blockcheck2.sh`; test plug-in layout in `blockcheck2.d/`).
+
+### Env vars
+
+| Var | Purpose | Default |
+|-----|---------|---------|
+| `BATCH=1` | non-interactive | unset (interactive) |
+| `DOMAINS=<dom1 dom2 ...>` | targets (space-separated; URIs allowed) | (interactive prompt) |
+| `TEST=<name>` | run a single test | (all) |
+| `IPVS=4\|6\|46` | IP versions | `46` |
+| `ENABLE_HTTP=0\|1` / `ENABLE_HTTPS_TLS12=0\|1` / `ENABLE_HTTPS_TLS13=0\|1` / `ENABLE_HTTP3=0\|1` | protocol enable | `1` each |
+| `REPEATS=<N>` | attempts per strategy | (defined per scanlevel) |
+| `PARALLEL=0\|1` | run each attempt in a child process (faster, may hit rate limits) | `0` |
+| `SCANLEVEL=quick\|standard\|force` | `quick`=stop at first failure; `standard`=skip irrelevant by prior results, continue on failure; `force`=test maximally | `standard` |
+| `HTTP_PORT` / `HTTPS_PORT` / `QUIC_PORT` | override ports | `80` / `443` / `443` |
+| `SKIP_DNSCHECK=1` | skip DNS-spoof check | (run) |
+| `SKIP_IPBLOCK=1` | skip IP-block check | (run) |
+| `SECURE_DNS=0\|1` | force DoH off/on (auto-detects spoofing and switches to DoH) | auto |
+| `DOH_SERVERS` / `DOH_SERVER` | DoH servers | (built-in list) |
+| `UNBLOCKED_DOM` | domain known unblocked (for DNS check) | (built-in) |
+| `CURL=<path>` / `CURL_OPT=<opts>` | curl binary / extra opts | (autodetect) |
+| `CURL_MAX_TIME=<N>` / `CURL_MAX_TIME_QUIC=<N>` / `CURL_MAX_TIME_DOH=<N>` | per-request timeouts | (defaults) |
+| `CURL_CMD=1` | print curl command instead of running | (run) |
+| `CURL_HTTPS_GET=1` | use GET for https (default HEAD) — for long-response/16KB-block testing | (HEAD) |
+| `PKTWS_EXTRA_POST=<opts>` / `PKTWS_EXTRA_POST_1..9=<opts>` / `PKTWS_EXTRA_PRE=<opts>` / `PKTWS_EXTRA_PRE_1..9=<opts>` | extra nfqws2 options appended/prepended to every test strategy | (none) |
+| `SIMULATE=1` / `SIM_SUCCESS_RATE=<percent>` | dry-run with simulated success rate | (real) |
+| `DNSCHECK_DNS` / `DNSCHECK_DOM` | DNS-spoof check params | (defaults) |
+
+`[evidence: verified]` (var names + defaults in `blockcheck2.sh`).
+
+### Test variables
+
+| Var | Purpose |
+|-----|---------|
+| `MIN_TTL` / `MAX_TTL` | TTL scan range (0 disables TTL tests) |
+| `MIN_AUTOTTL_DELTA` / `MAX_AUTOTTL_DELTA` | AUTOTTL delta scan range (0 disables) |
+| `FAKE_REPEATS` | fake-packet repeat count |
+| `FOOLINGS46_TCP` / `FOOLINGS6_TCP` | fooling set for ipv4/ipv6 TCP |
+| `FAKE_HTTP` / `FAKE_HTTPS` / `FAKE_QUIC` | fake blob for http/https/quic |
+| `FAKED_PATTERN_HTTP` / `FAKED_PATTERN_HTTPS` | fakedsplit/fakeddisorder pattern |
+| `SEQOVL_PATTERN_HTTP` / `SEQOVL_PATTERN_HTTPS` | seqovl pattern |
+| `MULTIDISORDER=multidisorder_legacy` | use legacy disorder variant |
+| `NOTEST_BASIC_HTTP`, `NOTEST_MISC_HTTP(_HTTPS)`, `NOTEST_MULTI_HTTP(_HTTPS)`, `NOTEST_SEQOVL_HTTP(_HTTPS)`, `NOTEST_SYNDATA_HTTP(_HTTPS)`, `NOTEST_FAKE_HTTP(_HTTPS)`, `NOTEST_FAKED_HTTP(_HTTPS)`, `NOTEST_HOSTFAKE_HTTP(_HTTPS)`, `NOTEST_FAKE_MULTI_HTTP(_HTTPS)`, `NOTEST_FAKE_FAKED_HTTP(_HTTPS)`, `NOTEST_FAKE_HOSTFAKE_HTTP(_HTTPS)`, `NOTEST_QUIC` | disable individual tests |
+
+`[evidence: verified]` (var names in `blockcheck2.sh` + `blockcheck2.d/`).
+
+### Test structure
+
+Each test is a set of plug-in shell scripts under `blockcheck2.d/<testname>/`. Standard tests live in `blockcheck2.d/standard/` (auto-run); user-customizable tests live in `blockcheck2.d/custom/`. Each test has a `def.in` plus http/https variants. `[evidence: verified]` (layout in `blockcheck2.d/`).
+
+Standard tests:
+
+| Test | Coverage | Evidence |
+|------|----------|----------|
+| `10-http-basic` | HTTP baseline | verified |
+| `15-misc` (http+https) | miscellaneous fooling | verified |
+| `20-multi` | multisplit / multidisorder | verified |
+| `23-seqovl` | seqovl | verified |
+| `24-syndata` | syndata | verified |
+| `25-fake` / `25-faked` | fake / fakedsplit / fakeddisorder | verified |
+| `35-hostfake` | host fake | verified |
+| `50-fake-multi` / `55-fake-faked` / `60-fake-hostfake` | composite fake strategies | verified |
+| `90-quic` | QUIC / HTTP3 | verified |
+
+### Custom test
+
+Strategy lists can be loaded from files in the working directory: `list_http.txt`, `list_https_tls12.txt`, `list_https_tls13.txt`, `list_quic.sh`. One strategy per line (no newlines within a strategy). `#` introduces comments. Shell-escape special characters. `[evidence: verified]` (file names + format in `blockcheck2.sh`).
+
+### DNS check & IP block check
+
+`blockcheck2` runs two pre-flight checks before the strategy scan. `[evidence: verified]` (check code in `blockcheck2.sh`).
+
+- **DNS check**: auto-detects DNS spoofing and third-party DNS interception; auto-switches to DoH if spoofed. `SECURE_DNS=0|1` forces off/on. `SKIP_DNSCHECK=1` skips it. `[evidence: verified]`
+- **IP block check**: zapret2 cannot bypass a full IP block or a port/L4 block — the check tests port reachability via `nc`/`ncat` (prefers `ncat`). A partial block = handshake passes but data hangs/RSTs. The check also tests cross-domain-on-IP to distinguish IP block vs SNI block (manual interpretation required). `SKIP_IPBLOCK=1` skips it. `[evidence: verified]`
+
+### Summary
+
+Prints successful strategies per domain + IP version. The intersection across domains is only fully trustworthy with `SCANLEVEL=force` (lower scanlevels may stop early per domain). `[evidence: community-observed]` (intersection-trust caveat widely attested).
 
 ## "No strategy works" — decision tree
 
@@ -101,8 +181,8 @@ Before a deep debug, confirm zapret2 is the latest release. The built-in update 
 
 ## Cross-references
 
-`deploy.md` (install blockcheck2 as part of `/opt/zapret2/bin/`); `nfqueue-wiring.md` (wiring must be correct before blockcheck results are meaningful); `theory.md` §7 (the `posdebug`/`luaexec` debug recipe used in decision-tree step 8); `hostlist-ipset-nftset.md` (domain vs IP scoping — relevant when blockcheck targets a specific site); `zapret2-strategies` (translate blockcheck results into a desync chain — `reference/fake.md`, `multisplit.md`, etc.; `testing-ladder.md` for the progressive escalation order); `zapret2-engine-reference/reference/arg-ordering.md` (correct flag ordering when composing the resulting profile); `openwrt-ops` §6 (safe-mode for the apply step), §11 (no hardcoded strategy), Appendix B (safe-mode zapret2 config edit).
+`deploy.md` (install blockcheck2 as part of `/opt/zapret2/bin/`); `nfqueue-wiring.md` (wiring must be correct before blockcheck results are meaningful); `theory.md` §7 (the `posdebug`/`luaexec` debug recipe used in decision-tree step 8); `hostlist-ipset-nftset.md` (domain vs IP scoping — relevant when blockcheck targets a specific site); `config-file.md` (`NFQWS2_OPT` is where blockcheck results land after translation); `zapret2-strategies` (translate blockcheck results into a desync chain — `reference/fake.md`, `multisplit.md`, etc.; `testing-ladder.md` for the progressive escalation order); `zapret2-engine-reference/reference/arg-ordering.md` (correct flag ordering when composing the resulting profile); `openwrt-ops` §6 (safe-mode for the apply step), §11 (no hardcoded strategy), Appendix B (safe-mode zapret2 config edit).
 
 ## Source mapping
 
-Upstream code: `blockcheck2` tool shipped in zapret2 tarball (`/opt/zapret2/bin/`). Upstream documentation: openwrt-ops §11 (no hardcoded strategy mandate), §6/Appendix B (safe-mode config edit procedure). Troubleshooting framework: the upstream `zapret_not_working` note (DPI heterogeneity, regional lottery, block-type taxonomy, link-chain model, client-side conflict list, version-freshness caveat).
+Upstream code: `blockcheck2.sh` + `blockcheck2.d/<test>/` plug-in scripts (shipped in the zapret2 tarball under `/opt/zapret2/bin/`). Upstream documentation: `docs/manual.md` §"blockcheck2" (env-var + test-var reference); openwrt-ops §11 (no hardcoded strategy mandate), §6/Appendix B (safe-mode config edit procedure). Troubleshooting framework: the upstream `zapret_not_working` note (DPI heterogeneity, regional lottery, block-type taxonomy, link-chain model, client-side conflict list, version-freshness caveat).
