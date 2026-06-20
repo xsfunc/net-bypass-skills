@@ -17,7 +17,13 @@ description: >-
   strategy rotation RST retransmission redirect, orchestrator, preset model,
   preset composition, profile model, profile anatomy, multi-profile config,
   YouTube and Discord in one preset, --new profile separator, --lua-desync=pass
-  exclusion, desync stacking multiple lua-desync. Do NOT use for: wifi wireless
+  exclusion, desync stacking multiple lua-desync, drop send pktmod luaexec
+  detect_payload_str, http_hostcase http_domcase http_methodeol http_unixeol
+  hostcase domcase, wssize wsize window size scale forced_cutoff,
+  tls_client_hello_clone rst udplen dht_dn synack synack_split, repeater
+  condition per_instance_condition stopif iff cond_true cond_random
+  cond_payload_str cond_tcp_ts cond_tcp_has_ts cond_lua orchestrators. Do NOT
+  use for: wifi wireless
   setup, sysupgrade firmware, Windows GUI launcher winws2, WinDivert, ZapretHub,
   прямой запуск direct launch GUI, %AppData% preset file, MTProto VPS
   proxy-server, AmneziaWG client, VLESS endpoint hardening, --filter flag,
@@ -55,7 +61,16 @@ Every claim in every card carries one of three tags (assigned during distillatio
 - `reference/hostfakesplit.md` — hostname-boundary split + generated fake host.
 - `reference/tcpseg.md` — range segmentation, no verdict (new in nfqws2).
 - `reference/oob.md` — out-of-band byte insertion at SYN (new in nfqws2).
+- `reference/drop.md` — cancel the current packet (pairs with `send`/`tcpseg`/`fake` to replace the original).
+- `reference/send.md` — emit the current dissect with modifiers (no verdict; pair with `drop`).
+- `reference/pktmod.md` — modify the current dissect in place (no send; `VERDICT_MODIFY`).
+- `reference/luaexec.md` — run arbitrary Lua per packet (dynamic blobs, custom verdict logic; new in nfqws2).
+- `reference/detect-payload-str.md` — content-based custom payload-type detector (new in nfqws2).
+- `reference/http-fooling.md` — `http_hostcase`/`http_domcase`/`http_methodeol`/`http_unixeol` HTTP header tampering (nginx-only gotchas).
+- `reference/wssize.md` — `wssize` + `wsize` TCP window-size manipulation (zero-phase; must precede `syndata`).
+- `reference/misc-desync.md` — `tls_client_hello_clone`/`rst`/`udplen`/`dht_dn`/`synack`/`synack_split` (server-side noted for `synack*`/`wsize`).
 - `reference/circular.md` — orchestrator auto-rotation of strategies on RST/retransmission/redirect failures (new in nfqws2, no nfqws1 analog).
+- `reference/orchestrators.md` — `repeater`/`condition`/`per_instance_condition`/`stopif` orchestrators + iff functions (new in nfqws2, no nfqws1 analog).
 - `reference/preset.md` — preset composition model (header + `--new`-separated profiles), router-reframed.
 - `reference/profile.md` — one profile's anatomy (filter AND desync), `--lua-desync=pass` exclusion, desync stacking, ordering.
 - `migration.md` — consolidated nfqws1 -> nfqws2 master table (fooling flags + per-technique pos/seqovl/pattern/host args; new nfqws2-only capabilities).

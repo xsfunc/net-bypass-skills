@@ -40,7 +40,7 @@ The "phase 0" strategy: injects an arbitrary payload into the TCP SYN, applies m
 
 ## Cross-references
 
-`fake` (data-phase, no verdict), `multisplit`/`multidisorder` (post-SYN split), `wssize` (must precede syndata). Full fooling-flag migration: `../migration.md`.
+`fake` (data-phase, no verdict), `multisplit`/`multidisorder` (post-SYN split), `wssize.md` (window-size manipulation — **must precede syndata**; see its "Instance order matters" gotcha). Full fooling-flag migration: `../migration.md`.
 
 ## Source mapping
 

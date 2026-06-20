@@ -105,7 +105,7 @@ New in nfqws2 — **no nfqws1 analog** (nfqws1 had no Lua orchestrator and no au
 
 ## Cross-references
 
-`multisplit`, `fake`, `multidisorder` (typical subordinate techniques); `../migration.md` (new nfqws2-only capabilities); `../testing-ladder.md` §"Beyond rung 4" (circular as the layer above the testing ladder); `preset.md` / `profile.md` (where a `circular` chain lives inside a profile).
+`multisplit`, `fake`, `multidisorder` (typical subordinate techniques); `orchestrators.md` (the other `zapret-auto.lua` orchestrators — `repeater`/`condition`/`per_instance_condition`/`stopif`; use `stopif` as a nested halt inside `circular`); `../migration.md` (new nfqws2-only capabilities); `../testing-ladder.md` §"Beyond rung 4" (circular as the layer above the testing ladder); `preset.md` / `profile.md` (where a `circular` chain lives inside a profile).
 
 ## Source mapping
 
