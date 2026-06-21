@@ -49,7 +49,7 @@ Scope: the OpenWrt router agent (nfqws2 engine, fw4/nftables, apk 25.x / opkg pr
 
 ## The path: autodetect, never hardcode
 
-zapret2 **MUST** use autodetection / `blockcheck2` — never hardcode a strategy (openwrt-ops §11). This pack explains *how to install zapret2, wire NFQUEUE, and debug interception* so the agent can get to the point where `blockcheck2` can run. It is not a substitute for `blockcheck2`; if no strategy works after wiring is correct, run autodetection (see `reference/blockcheck.md`). Do not guess a strategy from this pack.
+zapret2 **SHOULD** use autodetection / `blockcheck2`. This pack explains *how to install zapret2, wire NFQUEUE, and debug interception* so the agent can get to the point where `blockcheck2` can run. It is not a substitute for `blockcheck2`; if no strategy works after wiring is correct, run autodetection (see `reference/blockcheck.md`).
 
 ## Evidence tags (ternary)
 
