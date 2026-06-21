@@ -14,34 +14,46 @@ egress packet → nftables hook (prerouting/output/forward) → queue statement 
 
 The `queue num` must match the `--qnum=N` (or equivalent) flag nfqws2 was started with via the init script. A mismatch produces "rule present, packets missing" — see troubleshooting matrix below. `[evidence: community-observed]`
 
-## Canonical pattern (upstream README nftables example)
+## Canonical pattern (upstream manual nftables example)
 
-The upstream README ships a 5-rule nftables pattern that is the canonical NFQUEUE wiring for nfqws2. It adds a loop-guard, a connbytes limiter at the nftables level, a fail-open `bypass` keyword, a TCP-liberal sysctl, and a `notrack` predefrag chain. This is the pattern to mirror in any deploy; the minimal example further below is a degenerate fallback. `[evidence: verified]` (upstream README nftables example; `nfq2/nfqws.c` `DESYNC_MARK` semantics; nftables `ct`/`queue`/`notrack` statement semantics are code-defined in `nft`).
+The upstream manual ships an nftables pattern that is the canonical NFQUEUE wiring for nfqws2. It adds a loop-guard, a connbytes limiter at the nftables level, a fail-open `bypass` keyword, a `notrack` predefrag chain, and explicit rules for `fin,rst` / `syn,ack` packets so conntrack sees them. This is the pattern to mirror in any deploy; the minimal example further below is a degenerate fallback. `[evidence: verified]` (upstream manual.md §"Перехват трафика с помощью nftables"; `nfq2/nfqws.c` `DESYNC_MARK` semantics; nftables `ct`/`queue`/`notrack` statement semantics are code-defined in `nft`).
 
 ```nft
-nft delete table inet ztest
-nft create table inet ztest
-nft add chain inet ztest post "{type filter hook postrouting priority 101;}"
-nft add rule inet ztest post meta mark and 0x40000000 == 0 tcp dport "{80,443}" ct original packets 1-12 queue num 200 bypass
-nft add rule inet ztest post meta mark and 0x40000000 == 0 udp dport "{443}" ct original packets 1-12 queue num 200 bypass
+IFACE_WAN=wan
+MAX_PKT_IN=15
+MAX_PKT_OUT=15
+FWMARK=0x40000000
+PORTS_TCP=80,443
+PORTS_UDP=443
+QNUM=200
 
-sysctl net.netfilter.nf_conntrack_tcp_be_liberal=1
-nft add chain inet ztest pre "{type filter hook prerouting priority -101;}"
-nft add rule inet ztest pre meta mark and 0x40000000 == 0 tcp sport "{80,443}" ct reply packets 1-12 queue num 200 bypass
-nft add rule inet ztest pre meta mark and 0x40000000 == 0 udp sport "{443}" ct reply packets 1-12 queue num 200 bypass
+nft create table inet ztest
+
+nft add chain inet ztest postnat "{type filter hook postrouting priority srcnat+1;}"
+nft add rule inet ztest postnat oifname $IFACE_WAN meta mark and $FWMARK == 0 udp dport "{$PORTS_UDP}" ct original packets 1-$MAX_PKT_OUT queue num $QNUM bypass
+nft add rule inet ztest postnat oifname $IFACE_WAN meta mark and $FWMARK == 0 tcp dport "{$PORTS_TCP}" ct original packets 1-$MAX_PKT_OUT queue num $QNUM bypass
+nft add rule inet ztest postnat oifname $IFACE_WAN meta mark and $FWMARK == 0 tcp dport "{$PORTS_TCP}" tcp flags fin,rst queue num $QNUM bypass
+
+nft add chain inet ztest pre "{type filter hook prerouting priority filter;}"
+nft add rule inet ztest pre iifname $IFACE_WAN udp sport "{$PORTS_UDP}" ct reply packets 1-$MAX_PKT_IN queue num $QNUM bypass
+nft add rule inet ztest pre iifname $IFACE_WAN tcp sport "{$PORTS_TCP}" ct reply packets 1-$MAX_PKT_IN queue num $QNUM bypass
+nft add rule inet ztest pre iifname $IFACE_WAN tcp sport "{$PORTS_TCP}" "tcp flags & (syn | ack) == (syn | ack)" queue num $QNUM bypass
+nft add rule inet ztest pre iifname $IFACE_WAN tcp sport "{$PORTS_TCP}" tcp flags fin,rst queue num $QNUM bypass
 
 nft add chain inet ztest predefrag "{type filter hook output priority -401;}"
-nft add rule inet ztest predefrag "mark & 0x40000000 != 0x00000000 notrack"
+nft add rule inet ztest predefrag "mark & $FWMARK != 0x00000000 notrack"
 ```
+
+The manual example binds the rules to `oifname`/`iifname $IFACE_WAN`. The include-file example below omits interface names so the same file works regardless of WAN interface; add `oifname`/`iifname` constraints if you want to match the manual exactly. `[evidence: community-observed]`
 
 ### Piece-by-piece
 
 - **`meta mark and 0x40000000 == 0`** — loop guard: zapret2-generated packets are fwmarked with `DESYNC_MARK` (`0x40000000`); this match ensures they are not re-queued (infinite-loop prevention). The mark value MUST match `DESYNC_MARK` in `/opt/zapret2/config` (see `config-file.md` §4). `[evidence: verified]` (mark semantics in `nfq2/nfqws.c`; `config.default` defines `DESYNC_MARK=0x40000000`).
-- **`ct original packets 1-12` / `ct reply packets 1-12`** — connbytes limiter at the nftables level: only the first 12 packets of each direction go to userspace. **This is the kernel-side CPU optimisation that complements `NFQWS2_TCP_PKT_OUT=20`/`_IN=10` in `config`** (`config-file.md` §1). Tune the number per deployment; 12 is the upstream example, 20/10 is the `config.default`. `[evidence: verified]` (nftables `ct packets` syntax is code-defined; `config.default` defaults).
+- **`ct original packets 1-15` / `ct reply packets 1-15`** — connbytes limiter at the nftables level: only the first 15 packets of each direction go to userspace. **This is the kernel-side CPU optimisation that complements `NFQWS2_TCP_PKT_OUT=20`/`_IN=10` in `config`** (`config-file.md` §1). Tune the number per deployment; 15 is the upstream manual example, 20/10 is the `config.default`. `[evidence: verified]` (nftables `ct packets` syntax is code-defined; upstream manual.md example uses 15).
+- **`tcp flags fin,rst` and `tcp flags & (syn|ack) == (syn|ack)` rules** — intercept FIN/RST/SYN-ACK packets so conntrack sees them and cleans up/records state correctly. The upstream manual explicitly says FIN/RST interception is "желателен для максимально корректной работы conntrack". `[evidence: verified]` (upstream manual.md §"Перехват трафика с помощью nftables").
 - **`queue num 200 bypass`** — `bypass` keyword: if nfqws2 is not running, packets pass through unmodified (fail-open) instead of being dropped. Trade-off: a dead nfqws2 silently disables bypass. `[evidence: verified]` (nftables `queue ... bypass` semantics); `[evidence: community-observed]` (fail-open trade-off widely attested).
-- **`sysctl net.netfilter.nf_conntrack_tcp_be_liberal=1`** — required for TCP liberal conntrack; zapret2's bad-seq/bad-ack fooling generates packets that strict conntrack would drop. `[evidence: verified]` (sysctl name + liberal semantics are kernel-defined).
 - **`predefrag` chain with `notrack`** — zapret2-generated packets (marked) are excluded from conntrack re-fragmentation so the engine's careful IP-fragment layout is preserved. `[evidence: verified]` (nftables `notrack` statement semantics; hook priority `-401` runs before defrag).
-- **`priority 101` (postrouting) / `-101` (prerouting)** — hook priorities; `postrouting` for outgoing (POSTNAT mode default), `prerouting` for incoming. PRENAT mode uses `output`/`input` instead — out of scope for the default. `[evidence: verified]` (nftables hook priority semantics).
+- **`priority srcnat+1` (=101) (postrouting) / `filter` (=0) (prerouting)** — hook priorities; `postrouting` for outgoing (POSTNAT mode default), `prerouting` for incoming. PRENAT mode uses `output`/`input` instead — out of scope for the default. `[evidence: verified]` (nftables hook priority semantics; upstream manual.md example).
 
 ## fw4 custom-rule include (apk 25.x + opkg 23.05+ with fw4)
 
@@ -53,15 +65,21 @@ fw4 (the default firewall on OpenWrt 22.03+) loads nftables include files from `
 table inet zapret2 {
     chain post {
         type filter hook postrouting priority 101; policy accept;
-        ip protocol tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 ct original packets 1-12 counter queue num 200 bypass
-        ip6 nexthdr tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 ct original packets 1-12 counter queue num 200 bypass
-        meta l4proto udp udp dport { 443 } meta mark & 0x40000000 == 0 ct original packets 1-12 counter queue num 200 bypass
+        ip protocol tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 ct original packets 1-15 counter queue num 200 bypass
+        ip6 nexthdr tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 ct original packets 1-15 counter queue num 200 bypass
+        meta l4proto udp udp dport { 443 } meta mark & 0x40000000 == 0 ct original packets 1-15 counter queue num 200 bypass
+        ip protocol tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 tcp flags fin,rst counter queue num 200 bypass
+        ip6 nexthdr tcp tcp dport { 80, 443 } meta mark & 0x40000000 == 0 tcp flags fin,rst counter queue num 200 bypass
     }
     chain pre {
-        type filter hook prerouting priority -101; policy accept;
-        ip protocol tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 ct reply packets 1-12 counter queue num 200 bypass
-        ip6 nexthdr tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 ct reply packets 1-12 counter queue num 200 bypass
-        meta l4proto udp udp sport { 443 } meta mark & 0x40000000 == 0 ct reply packets 1-12 counter queue num 200 bypass
+        type filter hook prerouting priority filter; policy accept;
+        ip protocol tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 ct reply packets 1-15 counter queue num 200 bypass
+        ip6 nexthdr tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 ct reply packets 1-15 counter queue num 200 bypass
+        meta l4proto udp udp sport { 443 } meta mark & 0x40000000 == 0 ct reply packets 1-15 counter queue num 200 bypass
+        ip protocol tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 "tcp flags & (syn | ack) == (syn | ack)" counter queue num 200 bypass
+        ip6 nexthdr tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 "tcp flags & (syn | ack) == (syn | ack)" counter queue num 200 bypass
+        ip protocol tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 tcp flags fin,rst counter queue num 200 bypass
+        ip6 nexthdr tcp tcp sport { 80, 443 } meta mark & 0x40000000 == 0 tcp flags fin,rst counter queue num 200 bypass
     }
     chain predefrag {
         type filter hook output priority -401; policy accept;
@@ -72,13 +90,13 @@ table inet zapret2 {
 
 `[evidence: verified]` (nftables `queue num N`/`ct packets`/`notrack` syntax is code-defined; fw4 include directory is OpenWrt standard). The `queue num` (200) must match the `--qnum` set by the init script from `config`; the `0x40000000` mask must match `DESYNC_MARK` in `config` — if either drifts, either packets loop or nothing is queued. `[evidence: verified]`
 
-Also set the sysctl out-of-band (it is not an nftables statement):
+Also set the sysctl out-of-band (it is not an nftables statement). The upstream manual example does **not** include this line, but it is required in practice because zapret2's bad-seq/bad-ack fooling generates packets that strict conntrack would drop:
 
 ```sh
 sysctl -w net.netfilter.nf_conntrack_tcp_be_liberal=1
 ```
 
-`[evidence: verified]` (sysctl name + liberal semantics).
+`[evidence: verified]` (sysctl name + liberal semantics); `[evidence: community-observed]` (absence in upstream example, but widely added in deployments).
 
 **Deploy under safe-mode** (openwrt-ops §6):
 
@@ -198,7 +216,7 @@ nfqws2 itself handles both families from one queue; no separate process is neede
 
 - **`fw4 reload` rebuilds the ruleset from UCI + includes.** A rule edited directly via `nft add` is lost on reload — always use the `/etc/nftables.d/*.nft` include file. `[evidence: verified]` (fw4 rebuild semantics).
 - **Include-file ordering is lexical.** `10-zapret2.nft` runs before `20-foo.nft`. If another include creates a chain that accepts the traffic first, the `queue` never fires. `[evidence: verified]` (nftables chain priority semantics).
-- **`priority mangle` is the safe hook point** for NFQUEUE diversion — it runs before the filter table's accept/drop decisions. Using `priority filter` can race with fw4's own accept rules. `[evidence: community-observed]`
+- **`priority filter` (=0) for prerouting is what the upstream manual example uses.** Using `priority mangle` (=-150) is also safe and runs earlier; using `priority filter` may race with fw4 accept rules in some setups. Pick one and stay consistent. `[evidence: verified]` (upstream manual.md example); `[evidence: community-observed]` (mangle-vs-filter trade-offs).
 - **Queuenum 0 is valid but risky** — some kernel/userspace tooling reserves it. Use ≥ 1024. `[evidence: community-observed]`
 - **`conntrack -F` is disruptive.** It kills all tracked flows on the router — every LAN client's connections drop. Use targeted `conntrack -D` when possible, and always under safe-mode with the timer armed. `[evidence: hypothesis]` (disruption severity is topology-dependent).
 - **dvtws2 (transparent proxy) is an alternative engine**, not a second queue. It uses a different interception mechanism (TPROXY/mark) and is out of scope for this card's NFQUEUE wiring. See upstream docs if a TPROXY setup is required. `[evidence: community-observed]`
@@ -207,8 +225,8 @@ nfqws2 itself handles both families from one queue; no separate process is neede
 
 ## Cross-references
 
-`theory.md` §3 (NFQUEUE verdicts conceptual model); `deploy.md` Step 10 (wiring is the mandatory post-install step); `blockcheck.md` (after wiring — autodetect the strategy); `config-file.md` §4 (`DESYNC_MARK` ↔ `meta mark` guard), §6 (`FLOWOFFLOAD` conflict), §1 (`PKT_OUT`/`PKT_IN` ↔ `ct packets`); `zapret2-strategies/reference/circular.md` (`--ctrack-disable=0` requirement); `zapret2-engine-reference/reference/filter.md` (profile-scope filters that decide which queued packets reach Lua); `openwrt-ops` §2 (fw4/nftables mandate, ipset-fallback policy), §6 (safe-mode), §7 (`nft -c -f` validation).
+`theory.md` §3 (NFQUEUE verdicts conceptual model); `deploy.md` Step 8 (wiring is the mandatory post-install step); `blockcheck.md` (after wiring — autodetect the strategy); `config-file.md` §4 (`DESYNC_MARK` ↔ `meta mark` guard), §6 (`FLOWOFFLOAD` conflict), §1 (`PKT_OUT`/`PKT_IN` ↔ `ct packets`); `zapret2-strategies/reference/circular.md` (`--ctrack-disable=0` requirement); `zapret2-engine-reference/reference/filter.md` (profile-scope filters that decide which queued packets reach Lua); `openwrt-ops` §2 (fw4/nftables mandate, ipset-fallback policy), §6 (safe-mode), §7 (`nft -c -f` validation).
 
 ## Source mapping
 
-Upstream code: `nfq2/nfqws.c` (NFQUEUE callback is the sole packet entry point; `DESYNC_MARK` semantics). Upstream documentation: openwrt-ops §2 (fw4/nftables + nftset-preferred policy), §6 (safe-mode), §7 (`nft -c -f` validation matrix), §0 (no iptables-legacy, no `reboot`). Upstream README nftables example (the canonical 5-rule pattern with `meta mark`/`ct packets`/`bypass`/`notrack`/liberal sysctl). nftables `queue`/`ct packets`/`notrack` statement semantics and fw4 include-file mechanism: OpenWrt firewall4 + nftables documentation. Flow-offload conflict: widely attested in upstream zapret2 community + OpenWrt flow-offload documentation (the offload fast-path skips nftables `queue`).
+Upstream code: `nfq2/nfqws.c` (NFQUEUE callback is the sole packet entry point; `DESYNC_MARK` semantics). Upstream documentation: openwrt-ops §2 (fw4/nftables + nftset-preferred policy), §6 (safe-mode), §7 (`nft -c -f` validation matrix), §0 (no iptables-legacy, no `reboot`). Upstream manual.md nftables example (the canonical pattern with `meta mark`/`ct packets`/`bypass`/`fin,rst`/`syn,ack`/`notrack`; `sysctl net.netfilter.nf_conntrack_tcp_be_liberal` is added by community practice). nftables `queue`/`ct packets`/`notrack` statement semantics and fw4 include-file mechanism: OpenWrt firewall4 + nftables documentation. Flow-offload conflict: widely attested in upstream zapret2 community + OpenWrt flow-offload documentation (the offload fast-path skips nftables `queue`).

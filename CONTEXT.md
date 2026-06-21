@@ -1,7 +1,3 @@
-# net-bypass-skills
-
-Knowledge skills for an OpenWrt router agent (nfqws2 engine, fw4/nftables) that does DPI-bypass work with zapret2. Distills the router-relevant subset of a private DPI/zapret2 knowledge base into evidence-tagged, self-contained reference packs the agent loads on demand.
-
 ## Language
 
 ### Detection model

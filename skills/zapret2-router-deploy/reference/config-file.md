@@ -1,8 +1,8 @@
-# config-file — /opt/zapret2/config parameter reference
+# config parameter reference
 
-`/opt/zapret2/config` is a **shell file** (sourced by the init script), not UCI — the sole non-UCI exception per openwrt-ops §0.6. Every parameter the OpenWrt init script (`init.d/openwrt/zapret2`) consumes is defined here. `[evidence: verified]` (parameter names and defaults are code-defined in `config.default` and consumed by `init.d/openwrt/zapret2`); `[evidence: community-observed]` (placement conventions — `/opt/zapret2/config` as the canonical path, edit-via-SSH workflow).
+`/opt/zapret2/config` is a **shell file**, not UCI. Every parameter OpenWrt init script (`init.d/openwrt/zapret2`) consumes is defined here.
 
-This is the reference the agent loads **before** editing any `config` parameter. Validate every edit with `sh -n /opt/zapret2/config` under safe-mode (openwrt-ops §6/§7) before applying. For the **flag syntax** that goes inside `NFQWS2_OPT` (`--filter-*`, `--payload`, `--lua-desync=...`), load `zapret2-engine-reference` — this file documents the shell-file parameters, not the engine flag grammar.
+This is reference agent loads **before** editing any `config` parameter. Validate with `sh -n /opt/zapret2/config` before applying. For the **flag syntax** that goes inside `NFQWS2_OPT` (`--filter-*`, `--payload`, `--lua-desync=...`), load `/zapret2-engine-reference` — this file documents the shell-file parameters, not the engine flag grammar.
 
 ## 1. Enable / ports / packet counts
 
@@ -18,14 +18,14 @@ This is the reference the agent loads **before** editing any `config` parameter.
 | `NFQWS2_PORTS_TCP_KEEPALIVE=80` | `80` | No-connbytes mode: TCP ports to keep intercepting for stateless DPI / HTTP keep-alives — **very CPU-consuming, enable with care** | verified |
 | `NFQWS2_PORTS_UDP_KEEPALIVE=` | (empty) | No-connbytes UDP equivalent | verified |
 
-`PKT_OUT` maps to connbytes direction `original`, `PKT_IN` to direction `reply` — the kernel-side limiter that complements the nftables `ct original packets 1-N` / `ct reply packets 1-N` expression (see `nfqueue-wiring.md` §Canonical pattern). `[evidence: verified]` (connbytes direction semantics; `config.default` defaults).
+`PKT_OUT` maps to connbytes direction `original`, `PKT_IN` to direction `reply` — the kernel-side limiter that complements the nftables `ct original packets 1-N` / `ct reply packets 1-N` expression (see `nfqueue-wiring.md` §Canonical pattern).
 
 ## 2. `NFQWS2_OPT="..."` — the desync payload
 
-The desync payload string passed to `nfqws2`. `[evidence: verified]` (consumed by `init.d/openwrt/zapret2`).
+The desync payload string passed to `nfqws2`.
 
-- `<HOSTLIST>` and `<HOSTLIST_NOAUTO>` are **placeholders** the init script replaces per `MODE_FILTER` and existing list files. Direct `--hostlist=` inside `NFQWS2_OPT` is discouraged — use the placeholders so `MODE_FILTER` keeps control. `[evidence: verified]`
-- The init script auto-adds the standard Lua files (`zapret-lib.lua`, `zapret-antidpi.lua`, `zapret-auto.lua`) via `--lua-init=@lua/...` and the `--qnum` / `--user` flags from `config`. **Do NOT duplicate them in `NFQWS2_OPT`** — a duplicate `--qnum` causes a parse error. `[evidence: verified]`
+- `<HOSTLIST>` and `<HOSTLIST_NOAUTO>` are **placeholders** the init script replaces per `MODE_FILTER` and existing list files. Direct `--hostlist=` inside `NFQWS2_OPT` is discouraged — use the placeholders so `MODE_FILTER` keeps control.
+- The init script auto-adds the standard Lua files (`zapret-lib.lua`, `zapret-antidpi.lua`, `zapret-auto.lua`) via `--lua-init=@lua/...` and the `--qnum` / `--user` flags from `config`. **Do NOT duplicate them in `NFQWS2_OPT`** — a duplicate `--qnum` causes a parse error.
 
 For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-reference/reference/core-flags.md` and `zapret2-engine-reference/reference/arg-ordering.md`.
 
@@ -38,7 +38,7 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `hostlist` | path to the user hostlist | none (engine-side domain filter only) | verified |
 | `autohostlist` | path to the auto-populated hostlist | none (engine populates the list at runtime) | verified |
 
-`[evidence: verified]` (mode semantics are init-script-defined). See `hostlist-ipset-nftset.md` for the engine flag side and `list-management.md` for the list-fetching infrastructure.
+See `hostlist-ipset-nftset.md` for the engine flag side and `list-management.md` for the list-fetching infrastructure.
 
 ## 4. Marks
 
@@ -48,16 +48,12 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `DESYNC_MARK_POSTNAT=0x20000000` | `0x20000000` | Mark used in pre-nat mode (`POSTNAT=0`) | verified |
 | `FILTER_MARK` | (unset) | Optional; if set, only outgoing traffic carrying this mark goes to nfqws2 — lets the operator write their own limiting rules upstream | verified |
 
-`[evidence: verified]` (mark semantics in `nfq2/nfqws.c`; defaults in `config.default`).
-
 ## 5. `POSTNAT=0|1`
 
 | Value | Mode | Notes | Evidence |
 |-------|------|-------|----------|
 | `0` | pre-nat | Disables some bypass techniques for forwarded traffic but lets debug log show client IPs | verified |
 | `1` | post-nat (default) | nftables only | verified |
-
-`[evidence: verified]` (mode is init-script-defined; nftables-only constraint).
 
 ## 6. `FLOWOFFLOAD=donttouch|none|software|hardware`
 
@@ -68,7 +64,7 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `software` | enable software offload | verified |
 | `hardware` | enable hardware offload | verified |
 
-**Critical interaction with `nfqueue-wiring.md`: flow offload bypasses NFQUEUE — the safe setting is `none` (or `donttouch` if the operator has already disabled offload via UCI per `nfqueue-wiring.md` §flow-offload-conflict).** `FLOWOFFLOAD=hardware`/`software` re-breaks NFQUEUE. `[evidence: verified]` (init-script honours the value); `[evidence: community-observed]` (offload/NFQUEUE conflict widely attested).
+**Critical interaction with `nfqueue-wiring.md`: flow offload bypasses NFQUEUE — the safe setting is `none` (or `donttouch` if the operator has already disabled offload via UCI per `nfqueue-wiring.md` §flow-offload-conflict).** `FLOWOFFLOAD=hardware`/`software` re-breaks NFQUEUE.
 
 ## 7. `DISABLE_IPV4=1` / `DISABLE_IPV6=1`
 
@@ -77,7 +73,7 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `DISABLE_IPV4=1` | `0` | Disable IPv4 family | verified |
 | `DISABLE_IPV6=1` | `1` | Disable IPv6 family (RU deployments often IPv4-only) | verified |
 
-`[evidence: verified]` (defaults in `config.default`). If the deployment needs IPv6 bypass (QUIC over IPv6, IPv6-only CDN), set `DISABLE_IPV6=0` and ensure the nftables NFQUEUE rule has the `ip6` line (`nfqueue-wiring.md` §IPv4 vs IPv6).
+If the deployment needs IPv6 bypass (QUIC over IPv6, IPv6-only CDN), set `DISABLE_IPV6=0` and ensure the nftables NFQUEUE rule has the `ip6` line (`nfqueue-wiring.md` §IPv4 vs IPv6).
 
 ## 8. OpenWrt iface selection
 
@@ -87,8 +83,6 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `OPENWRT_WAN4="wan vpn"` | (ifaces with default route) | IPv4 WAN interfaces | verified |
 | `OPENWRT_WAN6="wan6 vpn6"` | (ifaces with default route) | IPv6 WAN interfaces | verified |
 
-`[evidence: verified]` (consumed by `init.d/openwrt/zapret2`).
-
 ## 9. Classic-Linux iface selection
 
 | Parameter | Example | Purpose | Evidence |
@@ -96,8 +90,6 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `IFACE_LAN=eth0` | `eth0` | LAN interface (no effect on OpenWrt) | verified |
 | `IFACE_WAN="eth0 eth1"` | `eth0 eth1` | IPv4 WAN (space-separated) | verified |
 | `IFACE_WAN6="ipsec0 wireguard0 he_net"` | `ipsec0 wireguard0 he_net` | IPv6 WAN; if undefined, takes `IFACE_WAN`'s value | verified |
-
-`[evidence: verified]` (classic-Linux init-script consumption). Ignored on OpenWrt — use §8 instead.
 
 ## 10. Init-script hooks
 
@@ -109,11 +101,9 @@ For the engine flag grammar that goes inside `NFQWS2_OPT`, see `zapret2-engine-r
 | `INIT_FW_PRE_DOWN_HOOK` | Shell script run before firewall rules come down | verified |
 | `INIT_FW_POST_DOWN_HOOK` | Shell script run after firewall rules come down | verified |
 
-`[evidence: verified]` (hook names are init-script-defined). Use `INIT_FW_*_HOOK` to sync external systems (e.g. ipban PBR) with zapret2 firewall phases.
-
 ## 11. `GETLIST`
 
-Selects the list-fetching script run by `get_config.sh` (cron nightly). `[evidence: verified]` (consumed by `ipset/get_config.sh`).
+Selects the list-fetching script run by `get_config.sh` (cron nightly).
 
 | Value | Source | Evidence |
 |-------|--------|----------|
@@ -139,8 +129,6 @@ Comment out `GETLIST` to disable auto-fetch. See `list-management.md` for the fu
 | `AUTOHOSTLIST_UDP_OUT=4` | `4` | UDP outgoing packet cap for autohostlist | verified |
 | `AUTOHOSTLIST_DEBUGLOG=0` | `0` | Enable autohostlist debug log | verified |
 
-`[evidence: verified]` (defaults in `config.default`). Autohostlist requires `PKT_IN`/`PKT_OUT` set large enough to redirect enough starting packets — see `hostlist-ipset-nftset.md` §`--hostlist-auto*` for the engine-flag side.
-
 ## 13. ipset
 
 | Parameter | Default | Purpose | Evidence |
@@ -149,16 +137,12 @@ Comment out `GETLIST` to disable auto-fetch. See `list-management.md` for the fu
 | `IPSET_OPT="hashsize 262144 maxelem $SET_MAXELEM"` | `hashsize 262144 maxelem 522288` | ipset creation options | verified |
 | `IPSET_HOOK="/etc/zapret2.ipset.hook"` | (path) | Dynamic IP generation hook; `$1` = ipset/nftset/table name | verified |
 
-`[evidence: verified]` (consumed by `ipset/create_ipset.sh` and friends — see `list-management.md`).
-
 ## 14. ip2net
 
 | Parameter | Default | Purpose | Evidence |
 |-----------|---------|---------|----------|
 | `IP2NET_OPT4="--prefix-length=22-30 --v4-threshold=3/4"` | `--prefix-length=22-30 --v4-threshold=3/4` | ip2net IPv4 options | verified |
 | `IP2NET_OPT6="--prefix-length=56-64 --v6-threshold=5"` | `--prefix-length=56-64 --v6-threshold=5` | ip2net IPv6 options | verified |
-
-`[evidence: verified]` (defaults in `config.default`; flag semantics in `ip2net/` — see `list-management.md` §ip2net).
 
 ## 15. mdig
 
@@ -167,8 +151,6 @@ Comment out `GETLIST` to disable auto-fetch. See `list-management.md` for the fu
 | `MDIG_THREADS=30` | `30` | mdig resolver thread count | verified |
 | `MDIG_EAGAIN=10` | `10` | Retry count on DNS eagain | verified |
 | `MDIG_EAGAIN_DELAY=500` | `500` | Delay (ms) between eagain retries | verified |
-
-`[evidence: verified]` (defaults in `config.default`; flag semantics in `mdig/` — see `list-management.md` §mdig).
 
 ## 16. Misc
 
@@ -181,21 +163,15 @@ Comment out `GETLIST` to disable auto-fetch. See `list-management.md` for the fu
 | `LISTS_RELOAD` | (empty) | Command to reload ip/host lists after update; empty = auto backend selection; `-` = disable; on BSD+PF no auto reload, must provide own command | verified |
 | `FILTER_TTL_EXPIRED_ICMP=1` | `1` | Drop ICMP time-exceeded for tampered connections; can interfere with `mtr`/`traceroute` in POSTNAT — use a source port not redirected | verified |
 
-`[evidence: verified]` (defaults + semantics in `config.default`).
-
 ## Gotchas
 
-- **`/opt/zapret2/config` is the sole non-UCI exception** (openwrt-ops §0.6); edit with `sh -n` validation under safe-mode (openwrt-ops §6/§7). `[evidence: verified]`
-- **`FLOWOFFLOAD=hardware`/`software` re-breaks NFQUEUE** — see `nfqueue-wiring.md` §flow-offload-conflict. The safe value is `none` (or `donttouch` if the operator has already disabled offload via UCI). `[evidence: community-observed]`
-- **`NFQWS2_OPT` must NOT include `--qnum`, `--user`, or the standard `--lua-init=@lua/zapret-lib.lua` etc.** — the init script adds them. Duplicating `--qnum` causes a parse error. `[evidence: verified]`
-- **`DISABLE_IPV6=1` is the default** — if the deployment needs IPv6 bypass (QUIC over IPv6, IPv6-only CDN), set `DISABLE_IPV6=0` and ensure the nftables NFQUEUE rule has the `ip6` line. `[evidence: verified]`
-- **`MODE_FILTER=none` means `<HOSTLIST>` expands to empty** — a profile with `<HOSTLIST>` but `MODE_FILTER=none` has no hostlist filtering. `[evidence: verified]`
-- **`NFQWS2_PORTS_*_KEEPALIVE` is CPU-consuming** — no-connbytes mode intercepts packets for the whole connection lifetime; enable only on stateless DPI / HTTP keep-alive scenarios. `[evidence: community-observed]`
+- **`/opt/zapret2/config` is the sole non-UCI exception**; edit with `sh -n` validation under safe-mode
+- **`FLOWOFFLOAD=hardware`/`software` re-breaks NFQUEUE** — see `nfqueue-wiring.md`. Safe value is `none` (or `donttouch` if the operator has already disabled offload via UCI)
+- **`NFQWS2_OPT` must NOT include `--qnum`, `--user`, or the standard `--lua-init=@lua/zapret-lib.lua` etc.** 
+- **`DISABLE_IPV6=1` is the default** — if the deployment needs IPv6 bypass (QUIC over IPv6, IPv6-only CDN), set `DISABLE_IPV6=0` and ensure the nftables NFQUEUE rule has the `ip6` line.
+- **`MODE_FILTER=none` means `<HOSTLIST>` expands to empty** — a profile with `<HOSTLIST>` but `MODE_FILTER=none` has no hostlist filtering.
+- **`NFQWS2_PORTS_*_KEEPALIVE` is CPU-consuming** — no-connbytes mode intercepts packets for the whole connection lifetime; enable only on stateless DPI / HTTP keep-alive scenarios.
 
 ## Cross-references
 
-`deploy.md` (install path); `nfqueue-wiring.md` (`DESYNC_MARK` ↔ `meta mark` guard; `FLOWOFFLOAD` conflict §flow-offload-conflict; `PKT_OUT`/`PKT_IN` ↔ `ct original/reply packets 1-N`); `hostlist-ipset-nftset.md` (`MODE_FILTER`, autohostlist engine flags); `list-management.md` (`GETLIST` + ipset scripts, `IPSET_OPT`, `IP2NET_OPT4/6`, `MDIG_*`, `GZIP_LISTS`, `LISTS_RELOAD`); `init-script.md` (init-script actions, hooks, custom.d); `zapret2-engine-reference/reference/core-flags.md` (flag syntax that goes inside `NFQWS2_OPT`); `zapret2-engine-reference/reference/arg-ordering.md` (flag ordering); `openwrt-ops` §0.6 (non-UCI exception), §6 (safe-mode), §7 (`sh -n` validation).
-
-## Source mapping
-
-Upstream config: `config.default` (the canonical parameter set + defaults). Upstream code: `init.d/openwrt/zapret2` (consumes the parameters, auto-adds `--qnum`/`--user`/Lua-init); `nfq2/nfqws.c` (`DESYNC_MARK` semantics); `ipset/get_config.sh` (`GETLIST`); `ipset/create_ipset.sh` (`IPSET_OPT`); `ip2net/` (`IP2NET_OPT4/6`); `mdig/` (`MDIG_*`). Upstream documentation: `docs/manual.md` §"Файл config" (parameter-by-parameter reference).
+`deploy.md` (install path); `nfqueue-wiring.md` (`DESYNC_MARK` ↔ `meta mark` guard; `FLOWOFFLOAD` conflict §flow-offload-conflict; `PKT_OUT`/`PKT_IN` ↔ `ct original/reply packets 1-N`); `hostlist-ipset-nftset.md` (`MODE_FILTER`, autohostlist engine flags); `list-management.md` (`GETLIST` + ipset scripts, `IPSET_OPT`, `IP2NET_OPT4/6`, `MDIG_*`, `GZIP_LISTS`, `LISTS_RELOAD`); `init-script.md` (init-script actions, hooks, custom.d); `zapret2-engine-reference/reference/core-flags.md` (flag syntax that goes inside `NFQWS2_OPT`); `zapret2-engine-reference/reference/arg-ordering.md` (flag ordering) 

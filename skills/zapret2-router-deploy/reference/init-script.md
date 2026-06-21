@@ -80,7 +80,7 @@ ln -s /opt/zapret2/init.d/openwrt/90-zapret2 /etc/hotplug.d/iface/90-zapret2
 
 ## Cross-references
 
-`config-file.md` (parameters the init script consumes); `nfqueue-wiring.md` (the firewall rules `start_fw` applies); `deploy.md` Step 5 (init-script deployment + enable); `list-management.md` (`get_config.sh` cron job, `GETLIST`); `openwrt-ops` §6 (safe-mode for restart/reload), §7 (`sh -n` validation for custom.d), §11 (no hardcoded strategy — applies to custom.d constructions too).
+`config-file.md` (parameters the init script consumes); `nfqueue-wiring.md` (the firewall rules `start_fw` applies); `deploy.md` (canonical `install_easy.sh` performs init enable/hotplug/cron automatically; fallback Step 5 covers manual init-script deployment + enable); `list-management.md` (`get_config.sh` cron job, `GETLIST`); `openwrt-ops` §6 (safe-mode for restart/reload), §7 (`sh -n` validation for custom.d), §11 (no hardcoded strategy — applies to custom.d constructions too).
 
 ## Source mapping
 
