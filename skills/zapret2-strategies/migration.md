@@ -22,7 +22,7 @@ Use this to translate legacy nfqws1 (`--dpi-desync=…`, `--dpi-desync-fooling=�
 | `--dpi-desync=ipfrag2 --dpi-desync-ipfrag-pos-tcp=32` | `--lua-desync=send:ipfrag:ipfrag_pos_tcp=32 --lua-desync=drop` | same — `send` + `drop` replaces the single nfqws1 `ipfrag2` flag. | verified |
 | `--wssize 1:6` | `--lua-desync=wssize:wsize=1:scale=6` (place **before** `syndata`) | Zero-phase; needs `--ipcache-hostname` for hostlists. See `reference/wssize.md`. | verified |
 
-> **`tcp_ts_up` + `tcp_ack` on Linux:** Linux only drops bad-ack packets when the TCP timestamp option is first in the header. Always pair `tcp_ack=-66000` with `tcp_ts_up` when using `badack`/`badseq`-for-data without `badseq`-for-SYN. `[evidence: verified]`
+> **`tcp_ts_up` + `tcp_ack` on Linux:** Linux only drops bad-ack packets when the TCP timestamp option is first in the header. Always pair `tcp_ack=-66000` with `tcp_ts_up` when using `badack`/`badseq`-for-data without `badseq`-for-SYN.
 
 ## Position markers
 

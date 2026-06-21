@@ -2,6 +2,3 @@ interface:
   display_name: "OpenWrt Router Ops"
   short_description: "OpenWrt router agent ops & safety manual"
   default_prompt: "Use $openwrt-ops to apply the OpenWrt operational manual before any router change."
-
-policy:
-  allow_implicit_invocation: false

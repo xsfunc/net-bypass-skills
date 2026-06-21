@@ -1,31 +1,30 @@
-# ops-commands — PM, validation, and diagnostics reference
+> # Validation and diagnostics reference
 
-Read this file when `SKILL.md` points here: before any package install/upgrade (§Upgrades), before applying firewall/DNS/zapret changes (§Validation), or when diagnosing a broken router (§Diagnostics). Keep `SKILL.md`'s Non-Negotiables (§0) in force throughout.
+## Recency & Freshness Gate
 
-## Contents
+Run before any security review. Update the PM index, compare installed vs available, and report a table.
 
-- [Upgrades & Security Allowlist](#upgrades--security-allowlist)
-- [Validation matrix](#validation-matrix)
-- [nftset probe](#nftset-probe)
-- [Diagnostics order](#diagnostics-order)
-- [Package Management (apk / opkg)](#package-management-apk--opkg)
-- [Install policy](#install-policy)
-- [Banned packages](#banned-packages)
-- [dnsmasq -> dnsmasq-full swap](#dnsmasq---dnsmasq-full-swap)
+- Update index: `(apk: apk update / opkg: opkg update)`
+- Check security allowlist — compare installed vs available:
+```
+apk list -u; apk policy <pkg>          # apk: upgradable + installed-vs-available
+opkg list-upgradable; opkg info <pkg>  # opkg equivalent
+```
+- Report a table: package | installed | available | upgrade recommended (security-driven = yes).
+
+Done when: every allowlist package has a row in the report with installed vs available versions and a yes/no upgrade recommendation.
 
 ---
 
 ## Upgrades & Security Allowlist
 
-Allowlist: `dnsmasq`/`dnsmasq-full`, `jsonfilter`, `firewall4`, `nftables`/`nftables-json`, `https-dns-proxy`, `zapret2`, `openssl`/`mbedtls`/`wolfssl`, `ca-bundle`/`ca-certificates`.
+Allowlist: `dnsmasq`/`dnsmasq-full`, `fw4`, `nftables`/`nftables-json`, `https-dns-proxy`, `zapret2`, `openssl`/`mbedtls`/`wolfssl`, `ca-bundle`/`ca-certificates`.
 
 - No blanket upgrade via any PM. Targeted only:
 ```
 apk add --upgrade dnsmasq-full jsonfilter firewall4 nftables-json https-dns-proxy ca-bundle   # apk
 opkg upgrade dnsmasq-full jsonfilter firewall4 nftables-json https-dns-proxy ca-bundle        # opkg
 ```
-- Every upgrade wrapped in safe-mode (SKILL.md §6): preflight -> snapshot -> arm timer -> apply -> validate -> confirm/disarm.
-- `zapret2` may be from a custom feed/tarball, not the system PM. `(apk: check `apk info zapret2` + `/etc/apk/repositories*` / opkg: check `opkg info zapret2` + `/etc/opkg/customfeeds.conf`)` before upgrading; follow upstream update procedure.
 
 ---
 
@@ -57,24 +56,7 @@ All negative -> ipset fallback (SKILL.md §2) with deviations, or stop and repor
 ## Diagnostics order
 
 When broken, walk this ladder top-down; stop at the first failing layer and fix before descending:
-
 flash/RAM -> services+`logread` -> ping gateway/1.1.1.1/`nslookup` -> `nft list ruleset` -> `dnsmasq --test`+`uci show dhcp` -> zapret config+`ps` -> DoH port check.
-
----
-
-## Package Management (apk / opkg)
-
-| Task | apk (25.x) | opkg (pre-25) |
-|------|------------|---------------|
-| Update | `apk update` | `opkg update` |
-| Install | `apk add <pkg>` | `opkg install <pkg>` |
-| Remove | `apk del <pkg>` | `opkg remove <pkg>` |
-| Installed | `apk list -I` / `apk info <pkg>` | `opkg list-installed` / `opkg info <pkg>` |
-| Upgradable | `apk list -u` | `opkg list-upgradable` |
-| Info/size | `apk info <pkg>` / `apk info -s` | `opkg info <pkg>` |
-| Search | `apk search <pkg>` | `opkg list <pkg>` |
-| Reinstall | `apk add --force-reinstall <pkg>` | `opkg install --force-reinstall <pkg>` |
-| Versions+repos | `apk policy <pkg>` | `opkg info <pkg>` + `/etc/opkg/distfeeds.conf` |
 
 ---
 
@@ -84,15 +66,9 @@ preflight -> estimate footprint (`apk info -s` + deps / `opkg info <pkg>`) -> ke
 
 ---
 
-## Banned packages
-
-Banned always (both axes): `jq`, legacy `iptables`+`kmod-ipt-*`, duplicate DNS servers. Heavy runtimes (`python3`, `node-*`, Go tools `dnscrypt-proxy`/`dnsproxy`/`adguardhome-go`): `(constrained: banned / capable: allowed, C-prefer)`.
-
----
-
 ## dnsmasq -> dnsmasq-full swap
 
-Both `PROVIDES:=dnsmasq`. Procedure: backup dhcp config -> stop -> remove plain -> install -full -> validate -> start.
+Procedure: backup dhcp config -> stop -> remove plain -> install -full -> validate -> start.
 
 `(apk: apk del dnsmasq -> apk add dnsmasq-full / opkg: opkg remove dnsmasq -> opkg install dnsmasq-full)`.
 
