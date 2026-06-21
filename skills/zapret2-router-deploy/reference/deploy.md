@@ -24,8 +24,10 @@ Load `openwrt-ops` skill first.
 
 ```sh
 mkdir -p /tmp/zapret2-install && cd /tmp/zapret2-install
-curl -fL -o zapret2.tar.gz https://github.com/bol-van/zapret2/archive/refs/tags/<version>.tar.gz
+curl -fL -o zapret2.tar.gz https://github.com/bol-van/zapret2/releases/download/v<version>/zapret2-v<version>-openwrt-embedded.tar.gz
+curl -fL -o sha256sum.txt https://github.com/bol-van/zapret2/releases/download/v<version>/sha256sum.txt
 tar -xzf zapret2.tar.gz --strip-components=1
+sha256sum -c --ignore-missing sha256sum.txt
 # Audit the installer before running it on a live router
 less install_easy.sh
 ./install_easy.sh
@@ -72,9 +74,11 @@ Install the table above with the detected PM. Use `apk add` or `opkg install` â€
 
 ```sh
 mkdir -p /tmp/zapret2-install && cd /tmp/zapret2-install
-curl -fL -o zapret2.tar.gz https://github.com/bol-van/zapret2/archive/refs/tags/<version>.tar.gz
+curl -fL -o zapret2.tar.gz https://github.com/bol-van/zapret2/releases/download/v<version>/zapret2-v<version>-openwrt-embedded.tar.gz
+curl -fL -o sha256sum.txt https://github.com/bol-van/zapret2/releases/download/v<version>/sha256sum.txt
 mkdir -p /opt/zapret2
 tar -xzf zapret2.tar.gz -C /opt/zapret2 --strip-components=1
+( cd /opt/zapret2 && sha256sum -c --ignore-missing /tmp/zapret2-install/sha256sum.txt )
 ```
 
 ```sh
@@ -119,13 +123,20 @@ zapret2 may be from a custom feed/tarball, not the system PM.
 For the tarball upgrade procedure:
 
 ```sh
-# 1. Snapshot
-# 2. Stop the service
+# Stop the service
 /etc/init.d/zapret2 stop
-# 3. Back up the current config
+# Back up the current config
 cp -a /opt/zapret2/config "$RB/zapret2-config.precopy"
-# 4. Run the new install_easy.sh (canonical) or extract the new tarball over /opt/zapret2 (fallback)
-# 5. Restore the config if overwritten
+# Fetch the new release tarball + checksum
+mkdir -p /tmp/zapret2-upgrade && cd /tmp/zapret2-upgrade
+curl -fL -o zapret2.tar.gz https://github.com/bol-van/zapret2/releases/download/v<version>/zapret2-v<version>-openwrt-embedded.tar.gz
+curl -fL -o sha256sum.txt https://github.com/bol-van/zapret2/releases/download/v<version>/sha256sum.txt
+# Run the new install_easy.sh (canonical) or extract the new tarball over /opt/zapret2 (fallback)
+tar -xzf zapret2.tar.gz --strip-components=1
+sha256sum -c --ignore-missing sha256sum.txt
+./install_easy.sh
+# or: tar -xzf zapret2.tar.gz -C /opt/zapret2 --strip-components=1   # fallback
+# Restore the config if overwritten
 cp "$RB/zapret2-config.precopy" /opt/zapret2/config
 ```
 
