@@ -35,6 +35,7 @@ zapret2 **MUST** use autodetection / `blockcheck2` — never hardcode a strategy
 - `reference/orchestrators.md` — `repeater`/`condition`/`per_instance_condition`/`stopif` orchestrators + iff functions (new in nfqws2, no nfqws1 analog).
 - `reference/preset.md` — preset composition model (header + `--new`-separated profiles), router-reframed.
 - `reference/profile.md` — one profile's anatomy (filter AND desync), `--lua-desync=pass` exclusion, desync stacking, ordering.
+- `reference/byedpi-migration.md` — byedpi flag reference + byedpi -> nfqws2 migration map and gaps/divergences
 - `migration.md` — consolidated nfqws1 -> nfqws2 master table (fooling flags + per-technique pos/seqovl/pattern/host args; new nfqws2-only capabilities).
 - `testing-ladder.md` — progressive escalation: tcpseg -> dup -> split -> aggressive (fakedsplit/fakeddisorder).
 
