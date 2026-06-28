@@ -1,20 +1,16 @@
 ---
-name: zapret2-router-deploy
-description: zapret2 router-side deployment pack. Use when installing on OpenWrt
+name: zapret2-deploy
+description: zapret2 deployment pack. Use when installing on OpenWrt, WSL
 ---
 
-# OpenWrt deployment, NFQUEUE wiring, theory, hostlist & blockcheck pack
+# NFQUEUE wiring, theory, hostlist & blockcheck pack
 
-Scope: OpenWrt router agent. Covers: installation, nftables/NFQUEUE wiring, debugging interception, hostlist/ipset/nftset management, and blockcheck2 autodetection.
+Covers: installation, nftables/NFQUEUE wiring, debugging interception, hostlist/ipset/nftset management, and blockcheck2 autodetection.
 
 **Cross-skill routing:** 
 - load `/openwrt-ops` before any router-facing step
 - load `/zapret2-strategies` for desync technique semantics
 - load `/zapret2-engine-reference` for engine flag syntax
-
-## The path: autodetect, never invent
-
-zapret2 **MUST NOT** invent a strategy from scratch. Use either `blockcheck2` autodetection **or** a community preset known to work for the target ISP/region; both are evidence-based paths. A community preset is a starting point, not a drop-in config — validate it with operational testing before applying. If a previously-working strategy stops working, the DPI evolved: run `blockcheck2` or try a fresher community preset.
 
 ## Router deploy checklist
 
@@ -36,4 +32,5 @@ zapret2 **MUST NOT** invent a strategy from scratch. Use either `blockcheck2` au
 - `reference/list-management.md` — ipset list-fetching infrastructure (`get_*.sh` catalogue + `GETLIST`), standard list files table, ipban system, `ip2net` utility flags + algorithm, `mdig` utility flags + DoH example. The *production* side of the lists that `hostlist-ipset-nftset.md` consumes.
 - `reference/theory.md` — the networking theory a debugger needs, distilled from the 7-part upstream tutorial: L2-L7 stack, TCP seq/ack/MSS/window/retransmission, NFQUEUE verdicts (PASS/DROP/MODIFY), dissect/reconstruct, payload types & reasm/replay (concept only — types table lives in `zapret2-engine-reference`), Lua pipeline (instances, args, cutoff), and start/cutoff (why `n2<n3` lands on ClientHello when empty ACKs aren't intercepted).
 - `reference/hostlist-ipset-nftset.md` — domain and IP filter management (`--hostlist`/`--hostlist-exclude`/`--hostlist-domains`, `--ipset`/`--ipset-exclude`/`--ipset-ip`, `--hostlist-auto*` family), dnsmasq nftset wiring for domain-scoped bypass, hostlist categories, the black hostlist, and the `ipset-discord` raw CIDR list flagged "needs curation" (duplicates, mixed ASNs — never load as a ready-made rule).
-- `reference/blockcheck.md` — `blockcheck2` autodetection procedure, the **full env-var + test-variable tables + test-structure + custom-test-files reference**, reading the log, the "no strategy works" decision tree, and the `zapret_not_working` troubleshooting framework (DPI update, IP-block vs DPI-block vs throttle, local conflicts, multi-CDN sites).
+- `reference/blockcheck.md` — `blockcheck2` autodetection procedure, **env + test-variable tables + custom-test-files**, reading log, troubleshooting.
+- `reference/blockcheck-workstation.md` — host-side variant for running `blockcheck2.sh` on a Linux/WSL x86_64 with QUIC support. 
