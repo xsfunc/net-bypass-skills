@@ -126,7 +126,7 @@ Window: 5 min default, 10 for slow restarts, never < 2 min.
 
 ## 7. Validation & Diagnostics → references/ops-commands.md
 
-Read `references/ops-commands.md` (Validation matrix, nftset probe, Diagnostics order) before applying any firewall/DNS/zapret change and when diagnosing a broken router. Key rule: validate before apply (`nft -c -f`, `sh -n /opt/zapret2/config`, post-reload status); on failure, do NOT apply — report. The rollback timer (§6) is the safety net when a check can only run post-apply (dnsmasq UCI caveat).
+Read `references/ops-commands.md` (Validation matrix, nftset probe, Diagnostics order, Constrained toolbox) before applying any firewall/DNS/zapret change and when diagnosing a broken router. Key rule: validate before apply (`nft -c -f`, `sh -n /opt/zapret2/config`, post-reload status); on failure, do NOT apply — report. The rollback timer (§6) is the safety net when a check can only run post-apply (dnsmasq UCI caveat). For SNI/IP-reachability and timeout-limited probes on `(constrained)` HW, use the zero-install `curl --connect-to` / `ncat` patterns in `ops-commands.md#constrained-diagnostics-toolbox` — do not install `socat`/`openssl-util` or mutate `/etc/hosts` for diagnostics.
 
 ---
 
